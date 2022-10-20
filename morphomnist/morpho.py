@@ -78,7 +78,9 @@ class ImageMorphology:
     @property
     def median_thickness(self) -> float:
         """Median thickness along the skeleton."""
-        thickness = 2. * np.median(self.distance_map[self.skeleton]) / self.scale  # type: float
+        dmap = self.distance_map[self.skeleton]
+        print(dmap)
+        thickness = 2. * np.median(dmap) / self.scale  # type: float
         return thickness
 
     def downscale(self, image) -> np.ndarray:
