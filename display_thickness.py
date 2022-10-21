@@ -5,7 +5,7 @@ from torchvision.transforms import Compose, Lambda
 from torchvision.datasets import mnist
 from torch.utils.data import DataLoader
 
-from morphomnist.perturb import RandomThickening
+from morphomnist.perturb import SetThickness
 from morphomnist.morpho import ImageMorphology
 
 
@@ -22,10 +22,11 @@ def add_thicknesses(imgs: np.ndarray):
     T = []
     imgs_out = []
     for im in imgs:
+        t = np.random.choice([3, 5, 7])
         morph = ImageMorphology(im)
-        th = RandomThickening()
+        th = SetThickness(t)
         imgs_out.append(th(morph))
-        T.append(th.last_thickness)
+        T.append(t)
 
     return np.array(imgs_out), np.array(T)
 
@@ -37,10 +38,11 @@ if __name__ == '__main__':
     
     for i in range(4):
         xi = x[i]
-        axs[i][0].imshow(ImageMorphology(xi).binary_image)
-        axs[i][0].set_title('Original')
+        m = ImageMorphology(xi)
+        axs[i][0].imshow(m.binary_image)
+        axs[i][0].set_title(f'Original (t = {m.mean_thickness})')
         axs[i][0].axis('off')
-        xt, t = add_thicknesses(np.array([xi, xi, xi]))
+        xt, t = add_thicknesses(np.stack([xi, xi, xi], axis=0))
         for j in range(1, 4):
             axs[i][j].imshow(xt[j-1])
             axs[i][j].set_title(f'do(t = {t[j-1]})')

@@ -72,16 +72,12 @@ class ImageMorphology:
     @property
     def mean_thickness(self) -> float:
         """Mean thickness along the skeleton."""
-        dmap = self.distance_map[self.skeleton]
-        print(dmap)
         thickness = 2. * np.mean(self.distance_map[self.skeleton]) / self.scale  # type: float
         return thickness
 
     @property
     def median_thickness(self) -> float:
         """Median thickness along the skeleton."""
-        dmap = self.distance_map[self.skeleton]
-        print(dmap)
         thickness = 2. * np.median(dmap) / self.scale  # type: float
         return thickness
 
