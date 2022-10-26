@@ -207,6 +207,18 @@ class SetThickness(Perturbation):
             return morphology.erosion(img, disk)
 
 
+class SetIntensity(Perturbation):
+    def __init__(self, target_intensity: float):
+        self.target_intensity = target_intensity
+    
+    def __call__(self, morph: ImageMorphology):
+        img = morph.hires_image
+        img_min, img_max = img.min(), img.max()
+        current_intensity = np.median(img[img >= img_min + (img_max - img_min) * .5])
+        mult = self.target_intensity / current_intensity
+        return np.clip(morph.downscale(img) * mult, 0, 255)
+
+
 class LinearDeformation(Deformation):
     def _get_matrix(self, moments: ImageMoments, morph: ImageMorphology) -> np.ndarray:
         raise NotImplementedError

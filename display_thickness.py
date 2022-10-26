@@ -13,7 +13,7 @@ def load_mnist_train(batch_size=32):
     return DataLoader(
         mnist.MNIST('./data', train=True, download=True,
                     transform=Compose([
-                        Lambda(lambda x_: np.asarray(x_) / 255.0)
+                        Lambda(lambda x_: np.asarray(x_))
                     ])),
         batch_size=batch_size, shuffle=True)
 
