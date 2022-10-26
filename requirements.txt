@@ -5,3 +5,4 @@ pydantic
 scikit-image
 torchvision
 tqdm
+pyro-ppl
