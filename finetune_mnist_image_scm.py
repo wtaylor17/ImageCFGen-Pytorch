@@ -57,7 +57,7 @@ if __name__ == '__main__':
         for x, a in tqdm(list(batchify(x_train, a_train, device=device))):
             x = x.reshape((-1, 1, 28, 28)) / 255.0
             c = torch.clone(a.reshape((-1, 13)))
-            c_min, c_max = c[:, 10:].min(dim=0), c[:, 10:].max(dim=0)
+            c_min, c_max = c[:, 10:].min(dim=0).values, c[:, 10:].max(dim=0).values
             c[:, 10:] = (c[:, 10:] - c_min) / (c_max - c_min)
             opt.zero_grad()
             rec = loss_calc.rec_loss(x, c, metric=args.metric)
