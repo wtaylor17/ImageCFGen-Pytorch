@@ -75,9 +75,9 @@ if __name__ == '__main__':
             loss = rec_loss
             if use_latent_loss:
                 dx = D(x, codes, c)
-                d_loss = -torch.log(1 - dx)
+                d_loss = -torch.log(1 - dx).mean()
                 loss = loss + d_loss
-                L += dx.item()
+                L += dx.mean().item()
             R += rec_loss.item()
             loss.backward()
             opt.step()
