@@ -74,9 +74,10 @@ if __name__ == '__main__':
                 rec_loss = torch.square(x - xr).mean()
             loss = rec_loss
             if use_latent_loss:
-                codes_norm = 0.01 * torch.square(codes).sum(dim=1).mean()
-                loss = loss + codes_norm
-                L += codes_norm.item()
+                dx = D(x, codes, c)
+                d_loss = -torch.log(1 - dx)
+                loss = loss + d_loss
+                L += dx.item()
             R += rec_loss.item()
             loss.backward()
             opt.step()
@@ -84,7 +85,7 @@ if __name__ == '__main__':
             n_batches += 1
         print(f'Epoch {i + 1}/{args.steps}: {args.metric}={round(R / n_batches, 4)} ', end='')
         if use_latent_loss:
-            print(f'latent loss (znorm): {round(L / n_batches, 4)}')
+            print(f'D(x,E(x,a),a)={round(L / n_batches, 4)}')
         else:
             print()
 
