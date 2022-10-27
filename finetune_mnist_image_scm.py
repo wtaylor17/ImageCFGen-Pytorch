@@ -67,7 +67,7 @@ if __name__ == '__main__':
             rec_loss = loss_calc.rec_loss(x, z=codes, a=c, metric=args.metric)
             loss = rec_loss
             if use_latent_loss:
-                codes_norm = torch.square(codes).sum(dim=1).mean()
+                codes_norm = 0.01 * torch.square(codes).sum(dim=1).mean()
                 loss = loss + codes_norm
                 L += codes_norm.item()
             R += rec_loss.item()
