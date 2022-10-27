@@ -68,7 +68,7 @@ if __name__ == '__main__':
             loss = rec_loss
             if use_latent_loss:
                 codes_norm = torch.square(codes).sum(dim=1).mean()
-                loss += codes_norm
+                loss = loss + codes_norm
                 L += codes_norm.item()
             R += rec_loss.item()
             loss.backward()
@@ -78,6 +78,8 @@ if __name__ == '__main__':
         print(f'Epoch {i+1}/{args.steps}: {args.metric}={round(R / n_batches, 4)} ', end='')
         if use_latent_loss:
             print(f'latent loss (znorm): {round(L / n_batches, 4)}')
+        else:
+            print()
 
     torch.save({
         'D_state_dict': D.state_dict(),
