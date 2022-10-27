@@ -35,6 +35,9 @@ if __name__ == '__main__':
 
     E, G, D = mnist.load_model(args.model_file,
                                device=device)
+    E = E.to(device)
+    G = G.to(device)
+    D = D.to(device)
 
     n_show = 10
     inds = np.random.permutation(len(x_test))[:n_show]
@@ -47,14 +50,14 @@ if __name__ == '__main__':
         xdemo = x_test[inds]
         ademo = a_test[inds]
         x = xdemo.reshape((-1, 1, 28, 28)).to(device) / 255.0
-        c = ademo.reshape((-1, 13)).to(device)
+        c = ademo.reshape((-1, 13))
         cr = ademo.reshape((-1, 13)).cpu().numpy()
-        c[:, 10] = (c[:, 10] - c[:, 10].min()) / (c[:, 10].max() - c[:, 10].min())
-        c[:, 11] = (c[:, 11] - c[:, 11].min()) / (c[:, 11].max() - c[:, 11].min())
-        c[:, 12] = (c[:, 12] - c[:, 12].min()) / (c[:, 12].max() - c[:, 12].min())
+        c_min, c_max = c[:, 10:].min(dim=0).values, c[:, 10:].max(dim=0).values
+        c[:, 10:] = (c[:, 10:] - c_min) / (c_max - c_min)
         z_mean = torch.zeros((len(x), 512, 1, 1)).float()
         z = torch.normal(z_mean, z_mean + 1)
         z = z.to(device)
+        c = c.to(device)
 
         gener = G(z, c).reshape(n_show, 28, 28).cpu().numpy()
         recon = G(E(x, c), c).reshape(n_show, 28, 28).cpu().numpy()

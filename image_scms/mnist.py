@@ -159,7 +159,7 @@ def train(x_train: torch.Tensor,
             num_batches += 1
             images = images.reshape((-1, 1, 28, 28)).float().to(device) / 255
             c = torch.clone(attrs.reshape((-1, 13))).float().to(device)
-            c_min, c_max = c[:, scale_a_after:].min(dim=0), c[:, scale_a_after:].max(dim=0)
+            c_min, c_max = c[:, scale_a_after:].min(dim=0).values, c[:, scale_a_after:].max(dim=0).values
             c[:, scale_a_after:] = (c[:, scale_a_after:] - c_min) / (c_max - c_min)
 
             z_mean = torch.zeros((len(images), 512, 1, 1)).float()
@@ -198,7 +198,7 @@ def train(x_train: torch.Tensor,
                 ademo = a_test[:n_show]
                 x = xdemo.reshape((-1, 1, 28, 28)).float().to(device) / 255
                 c = torch.clone(ademo.reshape((-1, 13))).float().to(device)
-                c_min, c_max = c[:, scale_a_after:].min(dim=0), c[:, scale_a_after:].max(dim=0)
+                c_min, c_max = c[:, scale_a_after:].min(dim=0).values, c[:, scale_a_after:].max(dim=0).values
                 c[:, scale_a_after:] = (c[:, scale_a_after:] - c_min) / (c_max - c_min)
 
                 z_mean = torch.zeros((len(x), 512, 1, 1)).float()
