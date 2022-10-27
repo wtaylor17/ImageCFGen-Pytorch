@@ -27,6 +27,9 @@ parser.add_argument('--latent-loss',
 parser.add_argument('--lr',
                     type=float,
                     default=1e-5)
+parser.add_argument('--latent-scale',
+                    type=float,
+                    default=0.01)
 
 if __name__ == '__main__':
     sns.set()
@@ -54,6 +57,7 @@ if __name__ == '__main__':
     G = G.to(device)
     D = D.to(device)
 
+    E.train()
     opt = torch.optim.Adam(E.parameters(), lr=args.lr)
     loss_calc = AdversariallyLearnedInference(E, G, D)
 
@@ -74,18 +78,16 @@ if __name__ == '__main__':
                 rec_loss = torch.square(x - xr).mean()
             loss = rec_loss
             if use_latent_loss:
-                dx = D(x, codes, c)
-                d_loss = -torch.log(1 - dx).mean()
-                loss = loss + d_loss
-                L += dx.mean().item()
+                latent = torch.square(codes).sum(dim=1).mean()
+                L += latent.item()
+                loss = loss + args.latent_scale * latent
             R += rec_loss.item()
             loss.backward()
             opt.step()
-            loss += rec_loss.item()
             n_batches += 1
         print(f'Epoch {i + 1}/{args.steps}: {args.metric}={round(R / n_batches, 4)} ', end='')
         if use_latent_loss:
-            print(f'D(x,E(x,a),a)={round(L / n_batches, 4)}')
+            print(f'latent loss (znorm) ={round(L / n_batches, 4)}')
         else:
             print()
 
