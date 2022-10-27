@@ -31,8 +31,12 @@ class Encoder(nn.Module):
             nn.Conv2d(512, 512, (1, 1), (1, 1))
         )
 
+    @property
+    def device(self):
+        return next(self.parameters()).device
+
     def forward(self, X, a):
-        return self.layers(attributes_image(X, a))
+        return self.layers(attributes_image(X, a, device=self.device))
 
 
 class Generator(nn.Module):
@@ -108,8 +112,12 @@ class Discriminator(nn.Module):
             nn.Sigmoid()
         )
 
+    @property
+    def device(self):
+        return next(self.parameters()).device
+
     def forward(self, X, z, a):
-        dx = self.dx(attributes_image(X, a))
+        dx = self.dx(attributes_image(X, a, device=self.device))
         dz = self.dz(z)
         return self.dxz(torch.concat([dx, dz], dim=1)).reshape((-1, 1))
 
