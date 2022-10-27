@@ -55,7 +55,7 @@ if __name__ == '__main__':
     loss_calc = AdversariallyLearnedInference(E, G, D)
 
     for i in range(args.steps):
-        loss = 0
+        R, L = 0, 0
         n_batches = 0
         for x, a in tqdm(list(batchify(x_train, a_train, device=device))):
             x = x.reshape((-1, 1, 28, 28)) / 255.0
@@ -64,14 +64,20 @@ if __name__ == '__main__':
             c[:, 10:] = (c[:, 10:] - c_min) / (c_max - c_min)
             opt.zero_grad()
             codes = E(x, c)
-            rec = loss_calc.rec_loss(x, z=codes, a=c, metric=args.metric)
-            codes_norm = torch.square(codes).sum(dim=1).mean()
-            loss = rec + codes_norm
+            rec_loss = loss_calc.rec_loss(x, z=codes, a=c, metric=args.metric)
+            loss = rec_loss
+            if use_latent_loss:
+                codes_norm = torch.square(codes).sum(dim=1).mean()
+                loss += codes_norm
+                L += codes_norm.item()
+            R += rec_loss.item()
             loss.backward()
             opt.step()
-            loss += rec.item()
+            loss += rec_loss.item()
             n_batches += 1
-        print(f'Epoch {i+1}/{args.steps}: {round(loss / n_batches, 4)}')
+        print(f'Epoch {i+1}/{args.steps}: {args.metric}={round(R / n_batches, 4)} ', end='')
+        if use_latent_loss:
+            print(f'latent loss (znorm): {round(L / n_batches, 4)}')
 
     torch.save({
         'D_state_dict': D.state_dict(),
