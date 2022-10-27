@@ -44,6 +44,9 @@ if __name__ == '__main__':
 
     E, G, D = mnist.load_model(args.model_file,
                                device=device)
+    E = E.to(device)
+    G = G.to(device)
+    D = D.to(device)
 
     opt = torch.optim.Adam(E.parameters())
     loss_calc = AdversariallyLearnedInference(E, G, D)
@@ -52,8 +55,10 @@ if __name__ == '__main__':
         loss = 0
         n_batches = 0
         for x, a in tqdm(list(batchify(x_train, a_train, device=device))):
-            x = x.reshape((-1, 1, 28, 28)).to(device) / 255.0
-            c = a.reshape((-1, 13)).to(device)
+            x = x.reshape((-1, 1, 28, 28)) / 255.0
+            c = torch.clone(a.reshape((-1, 13)))
+            c_min, c_max = c[:, 10:].min(dim=0), c[:, 10:].max(dim=0)
+            c[:, 10:] = (c[:, 10:] - c_min) / (c_max - c_min)
             opt.zero_grad()
             rec = loss_calc.rec_loss(x, c, metric=args.metric)
             rec.backward()

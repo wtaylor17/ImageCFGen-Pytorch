@@ -14,6 +14,7 @@ def batchify(*tensors, batch_size=128, device='cpu'):
 
 
 def attributes_image(image, attributes, device='cpu'):
+    print(device)
     # image is (n, c, w, h)
     # attributes is (n, k) where k < h
     n, c, w, h = image.shape
@@ -21,7 +22,7 @@ def attributes_image(image, attributes, device='cpu'):
     attr_image = torch.zeros((n, 1, w, h)).float().to(device)
 
     attr_image[:, :, w//2, h//2-k//2-k % 2:h//2+k//2] = attributes.reshape((n, 1, k))
-    return torch.concat([image, attr_image], dim=1)
+    return torch.concat([image.to(device), attr_image], dim=1)
 
 
 def log_loss(score_0, score_1, eps=1e-6):
