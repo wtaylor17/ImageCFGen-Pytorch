@@ -67,6 +67,7 @@ if __name__ == '__main__':
             rec = loss_calc.rec_loss(x, z=codes, a=c, metric=args.metric)
             codes_norm = torch.square(codes).sum(dim=1).mean()
             loss = rec + codes_norm
+            loss.backward()
             opt.step()
             loss += rec.item()
             n_batches += 1
