@@ -63,7 +63,7 @@ class AdversariallyLearnedInference(nn.Module):
         dg, de = self(x, z, a=a)
         return log_loss(de, dg, eps)
 
-    def rec_loss(self, x, a=None, metric='ssim'):
+    def rec_loss(self, x, z=None, a=None, metric='ssim'):
         if metric == 'mse':
             def loss(Y, X):
                 return torch.square(Y - X).mean()
@@ -73,10 +73,11 @@ class AdversariallyLearnedInference(nn.Module):
         else:
             raise ValueError(f'Invalid metric {metric}')
 
-        encoder_args = (x,)
-        if a is not None:
-            encoder_args = encoder_args + (a,)
-        z = self.encoder(*encoder_args)
+        if z is None:
+            encoder_args = (x,)
+            if a is not None:
+                encoder_args = encoder_args + (a,)
+            z = self.encoder(*encoder_args)
         decoder_args = (z,)
         if a is not None:
             decoder_args = decoder_args + (a,)

@@ -22,11 +22,14 @@ parser.add_argument('--model-file',
 parser.add_argument('--metric',
                     type=str,
                     default='ssim')
+parser.add_argument('--latent-loss',
+                    action='store_true')
 
 
 if __name__ == '__main__':
     sns.set()
     args = parser.parse_args()
+    use_latent_loss = args.latent_loss
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     a_train = torch.from_numpy(np.load(
@@ -60,8 +63,10 @@ if __name__ == '__main__':
             c_min, c_max = c[:, 10:].min(dim=0).values, c[:, 10:].max(dim=0).values
             c[:, 10:] = (c[:, 10:] - c_min) / (c_max - c_min)
             opt.zero_grad()
-            rec = loss_calc.rec_loss(x, c, metric=args.metric)
-            rec.backward()
+            codes = E(x, c)
+            rec = loss_calc.rec_loss(x, z=codes, a=c, metric=args.metric)
+            codes_norm = torch.square(codes).sum(dim=1).mean()
+            loss = rec + codes_norm
             opt.step()
             loss += rec.item()
             n_batches += 1
