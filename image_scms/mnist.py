@@ -233,7 +233,7 @@ def train(x_train: torch.Tensor,
     return E, G, D, optimizer_D, optimizer_E
 
 
-def load_model(tar_path, device='cpu'):
+def load_model(tar_path, device='cpu', return_raw=False):
     obj = torch.load(tar_path, map_location=device)
     E = Encoder()
     G = Generator()
@@ -242,4 +242,6 @@ def load_model(tar_path, device='cpu'):
     E.load_state_dict(obj['E_state_dict'])
     G.load_state_dict(obj['G_state_dict'])
     D.load_state_dict(obj['D_state_dict'])
+    if return_raw:
+        return E, G, D, obj
     return E, G, D
