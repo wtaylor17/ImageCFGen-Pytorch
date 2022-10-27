@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
         gener = G(z, c).reshape(n_show, 28, 28).cpu().numpy()
         recon = G(E(x, c), c).reshape(n_show, 28, 28).cpu().numpy()
-        real = xdemo.reshape((n_show, 28, 28)).cpu().numpy()
+        real = xdemo.reshape((n_show, 28, 28)).cpu().numpy() / 255.0
 
         fig, ax = plt.subplots(3, n_show, figsize=(15, 5))
         fig.subplots_adjust(wspace=0.05, hspace=0)
