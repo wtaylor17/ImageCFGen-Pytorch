@@ -1,16 +1,18 @@
 from argparse import ArgumentParser
+import os
 
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 from attribute_scms import mnist
 
 
 parser = ArgumentParser()
-parser.add_argument('--data', type=str,
-                    help='path to .npy file for MNIST attributes',
-                    default='./mnist-a-train.py')
+parser.add_argument('--data-dir', type=str,
+                    help='path to folder with .npy files of data',
+                    default='')
 parser.add_argument('--steps', type=int,
                     help='number of epochs to train the distributions',
                     default=2000)
@@ -21,7 +23,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    a_train = torch.from_numpy(np.load(args.data)).float().to(device)
+    a_train = torch.from_numpy(np.load(
+        os.path.join(args.data_dir, 'mnist-a-train.npy')
+    )).float().to(device)
 
     t_dist, i_given_t_dist, s_dist, l_dist, opt = mnist.train(a_train,
                                                               device=device,

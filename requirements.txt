@@ -7,3 +7,4 @@ torchvision
 tqdm
 pyro-ppl
 seaborn
+pytorch-msssim
