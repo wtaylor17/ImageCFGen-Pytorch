@@ -142,7 +142,7 @@ if __name__ == '__main__':
         c_cf[:, 10:] = (c_cf[:, 10:] - c_min) / (c_max - c_min)
         pred_image_out = G(codes, c_cf)
 
-        real = x_test.reshape((n_show, 28, 28)).cpu().numpy() / 255.0
+        real = x_test.reshape((-1, 28, 28)).cpu().numpy() / 255.0
         true_image_out = true_image_out / 255.0
 
         mae = torch.abs(true_image_out - pred_image_out).mean()
@@ -157,16 +157,16 @@ if __name__ == '__main__':
         fig.text(0.01, 0.25, 'do(t+2) pred', ha='left')
 
         for i in range(n_show):
-            i = inds[i]
-            ax[0, i].imshow(real[i], cmap='gray', vmin=0, vmax=1)
+            j = inds[i]
+            ax[0, i].imshow(real[j], cmap='gray', vmin=0, vmax=1)
             ax[0, i].set_title(
-                f'c = {c_raw[i, :10].argmax().item()}, t = {round(float(c_raw[i, 10].item()), 2)}\ni'
-                f' = {round(float(c_raw[i, 11].item()), 2)}, s = {round(float(c_raw[i, 12].item()), 2)}',
+                f'c = {c_raw[i, :10].argmax().item()}, t = {round(float(c_raw[j, 10].item()), 2)}\ni'
+                f' = {round(float(c_raw[j, 11].item()), 2)}, s = {round(float(c_raw[j, 12].item()), 2)}',
                 fontsize=8)
             ax[0, i].axis('off')
-            ax[1, i].imshow(true_image_out[i].reshape((28, 28)), cmap='gray', vmin=0, vmax=1)
+            ax[1, i].imshow(true_image_out[j].reshape((28, 28)), cmap='gray', vmin=0, vmax=1)
             ax[1, i].axis('off')
-            ax[2, i].imshow(pred_image_out[i].reshape((28, 28)), cmap='gray', vmin=0, vmax=1)
+            ax[2, i].imshow(pred_image_out[j].reshape((28, 28)), cmap='gray', vmin=0, vmax=1)
             ax[2, i].axis('off')
         plt.savefig('mnist-imagecfgen-counterfactuals.png')
         plt.close()
