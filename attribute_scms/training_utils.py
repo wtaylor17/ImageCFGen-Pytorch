@@ -11,3 +11,15 @@ def batchify(*tensors, batch_size=128):
 def dist_parameters(dist):
     return sum([list(t.parameters()) for t in dist.transforms
                 if hasattr(t, 'parameters')], [])
+
+
+def nf_forward(d, noise):
+    for tf in d.transforms:
+        noise = tf(noise)
+    return noise
+
+
+def nf_inverse(d, obs):
+    for t in d.transforms[::-1]:
+        obs = t.inv(obs)
+    return obs

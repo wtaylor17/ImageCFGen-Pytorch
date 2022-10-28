@@ -102,3 +102,12 @@ def train(a_train: torch.Tensor,
         tq.set_description(f'loss = {round(epoch_loss / len(batches), 4)}')
 
     return t_dist, i_given_t_dist, s_dist, l_dist, optimizer
+
+
+def load_model(tar_path, device='cpu'):
+    obj = torch.load(tar_path, map_location=device)
+
+    t_dist = obj['t_dist']
+    i_given_t_dist = obj['i_given_t_dist']
+    s_dist = obj['s_dist']
+    return t_dist, i_given_t_dist, s_dist
