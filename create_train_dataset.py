@@ -23,28 +23,28 @@ class MorphoMNISTSCM(nn.Module):
         self.t_noise_dist = torch.distributions.Gamma(10, 5)
         self.i_noise_dist = torch.distributions.Normal(0, 1)
         self.s_noise_dist = torch.distributions.Normal(0, 0.1)
-    
+
     def generate_t(self, n=1, noise=None):
         if noise is None:
             et = self.t_noise_dist.sample((n, 1))
         else:
             et = noise
         return (et + 0.5).float()
-    
+
     def generate_s(self, n=1, noise=None):
         if noise is None:
             es = self.s_noise_dist.sample((n, 1))
         else:
             es = noise
         return np.pi * es
-    
+
     def generate_i(self, t, noise=None):
         if noise is None:
             ei = torch.randn(t.shape)
         else:
             ei = noise
         return 191 * torch.sigmoid(.5 * ei + 2 * t - 5) + 64
-    
+
     def generate(self, n=1):
         t = self.generate_t(n)
         i = self.generate_i(t)
@@ -53,26 +53,23 @@ class MorphoMNISTSCM(nn.Module):
 
 
 # dataset preparation
-def load_dataset(batch_size = 128, root = '.\datasets'):
-    train_dataset = torchvision.datasets.MNIST(root = root + '\MNIST', train=True, 
+def load_dataset(batch_size=128, root=r'.\datasets'):
+    train_dataset = torchvision.datasets.MNIST(root=root + r'\MNIST', train=True,
                                                transform=transforms.ToTensor(), download=True)
-    test_dataset = torchvision.datasets.MNIST(root = root + '\MNIST', train=False, 
-                                              transform=transforms.ToTensor())
-   
+
     train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
-    return train_loader, test_loader
+    return train_loader
 
 
 def add_attributes(loader):
     mnist_data = [], []
-    
+
     model = MorphoMNISTSCM()
     loader = list(loader)
     images = np.concatenate([instance[0] for instance in loader], axis=0)
     labels = np.concatenate([instance[1] for instance in loader], axis=0)
     thicknesses, intensities, slants = model.generate(len(images))
-    
+
     for i, (image, label, thickness, intensity, slant) in enumerate(tqdm(list(zip(images,
                                                                                   labels,
                                                                                   thicknesses,
@@ -86,8 +83,8 @@ def add_attributes(loader):
         current_intensity = np.median(new_img[new_img >= img_min + (img_max - img_min) * .5])
         mult = intensity / current_intensity
         new_img = np.clip(new_img * mult, 0, 255)
-        
-        #make one-hot embedding from labels
+
+        # make one-hot embedding from labels
         c = np.zeros((13,), dtype=np.float32)
         c[label] = 1
         c[10] = thickness
@@ -95,17 +92,13 @@ def add_attributes(loader):
         c[12] = slant
         mnist_data[0].append(new_img)
         mnist_data[1].append(c)
-    
+
     return mnist_data
 
 
 if __name__ == '__main__':
-    mnist_train, mnist_test = load_dataset()
-    
+    mnist_train = load_dataset()
+
     x_train, a_train = add_attributes(mnist_train)
     np.save('mnist-x-train.npy', np.stack(x_train, axis=0))
     np.save('mnist-a-train.npy', np.stack(a_train, axis=0))
-    
-    x_test, a_test = add_attributes(mnist_test)
-    np.save('mnist-x-test.npy', np.stack(x_test, axis=0))
-    np.save('mnist-a-test.npy', np.stack(a_test, axis=0))
