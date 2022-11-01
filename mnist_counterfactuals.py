@@ -97,13 +97,13 @@ if __name__ == '__main__':
     )).float().to(device)
     a_test = torch.from_numpy(np.load(
         os.path.join(args.data_dir, 'mnist-a-test.npy')
-    )).float().to(device)
+    )).float().to(device)[:20]
     x_train = torch.from_numpy(np.load(
         os.path.join(args.data_dir, 'mnist-x-train.npy')
     )).float().to(device)
     x_test = torch.from_numpy(np.load(
         os.path.join(args.data_dir, 'mnist-x-test.npy')
-    )).float().to(device)
+    )).float().to(device)[:20]
 
     ground_truth_scm = MorphoMNISTSCM()
 
@@ -151,7 +151,7 @@ if __name__ == '__main__':
         fig, ax = plt.subplots(3, n_show, figsize=(15, 5))
         fig.subplots_adjust(wspace=0.05, hspace=0)
         plt.rcParams.update({'font.size': 20})
-        fig.suptitle('Training complete')
+        fig.suptitle('Thickness counterfactuals on Morpho-MNIST')
         fig.text(0.01, 0.75, 'Original', ha='left')
         fig.text(0.01, 0.5, 'do(t+2) GT', ha='left')
         fig.text(0.01, 0.25, 'do(t+2) pred', ha='left')
@@ -160,7 +160,7 @@ if __name__ == '__main__':
             j = inds[i]
             ax[0, i].imshow(real[j], cmap='gray', vmin=0, vmax=1)
             ax[0, i].set_title(
-                f'c = {c_raw[i, :10].argmax().item()}, t = {round(float(c_raw[j, 10].item()), 2)}\ni'
+                f'c = {c_raw[j, :10].argmax().item()}, t = {round(float(c_raw[j, 10].item()), 2)}\ni'
                 f' = {round(float(c_raw[j, 11].item()), 2)}, s = {round(float(c_raw[j, 12].item()), 2)}',
                 fontsize=8)
             ax[0, i].axis('off')
