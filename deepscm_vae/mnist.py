@@ -164,13 +164,14 @@ def train(x_train: torch.Tensor,
                 z = z.to(device)
 
                 gener = vae.decoder(z, c).reshape(n_show, 28, 28).cpu().numpy()
-                sample = 0
+                recon = 0
                 for i in range(32):
                     z = vae.encoder.sample(x, c, device)
                     context = torch.concat([z, c], dim=1)
-                    sample = sample + vae.dist.condition(context).sample(xdemo.shape)
-                sample /= 32
-                recon = vae.decoder(sample, c).reshape(n_show, 28, 28).cpu().numpy()
+                    recon = recon + vae.dist.condition(context).sample(xdemo.shape)
+
+                recon = recon.cpu().detach().numpy() / 32
+                
                 real = xdemo.cpu().numpy()
 
                 if save_images_every is not None:
