@@ -163,7 +163,7 @@ def train(x_train: torch.Tensor,
                 z = z.to(device)
 
                 gener = vae.decoder(z, c).reshape(n_show, 28, 28).cpu().numpy()
-                recon = vae.decoder(vae.encoder(x, c), c).reshape(n_show, 28, 28).cpu().numpy()
+                recon = vae.decoder(vae.encoder.sample(x, c), c).reshape(n_show, 28, 28).cpu().numpy()
                 real = xdemo
 
                 if save_images_every is not None:
