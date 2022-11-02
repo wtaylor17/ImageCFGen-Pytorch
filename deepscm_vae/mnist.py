@@ -78,9 +78,10 @@ class VAEDecoder(nn.Module):
 
 
 class MNISTDecoderTransformation(ConditionalTransform):
-    def __init__(self, decoder: nn.Module, log_var=-5):
+    def __init__(self, decoder: nn.Module, log_var=-5,
+                 device='cpu'):
         self.decoder = decoder
-        self.scale = torch.exp(torch.ones((28, 28)) * log_var)
+        self.scale = torch.exp(torch.ones((28, 28)) * log_var).to(device)
 
     def condition(self, context):
         z, c = context
@@ -96,7 +97,8 @@ class MorphoMNISTVAE(nn.Module):
         self.preprocess = realnvp_preprocess_transform()
         self.base = dist.MultivariateNormal(torch.zeros((28, 28)).to(device),
                                             covariance_matrix=torch.eye(28).to(device))
-        self.dec_transform = MNISTDecoderTransformation(self.decoder)
+        self.dec_transform = MNISTDecoderTransformation(self.decoder,
+                                                        device=device)
         self.dist = dist.ConditionalTransformedDistribution(self.base,
                                                             [self.dec_transform,
                                                              self.preprocess])
@@ -104,12 +106,12 @@ class MorphoMNISTVAE(nn.Module):
     def forward(self, x, c, num_samples=10):
         return self.elbo(x, c, num_samples=num_samples)
 
-    def elbo(self, x, c, num_samples=10):
+    def elbo(self, x, c, num_samples=10, device='cpu'):
         z_mean, z_log_var = self.encoder(x, c)
         z_std = torch.exp(z_log_var * .5)
         lp = torch.zeros(z_mean.size(0))
         for _ in range(num_samples):
-            z = z_mean + torch.randn(z_mean.shape) * z_std
+            z = z_mean + torch.randn(z_mean.shape).to(device) * z_std
             lp = lp + self.dist.condition((z, c)).log_prob(x)
         lp = lp / num_samples
         dkl = .5 * (torch.square(z_std) +

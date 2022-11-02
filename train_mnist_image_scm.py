@@ -14,7 +14,7 @@ parser.add_argument('--data-dir', type=str,
                     default='')
 parser.add_argument('--steps', type=int,
                     help='number of epochs to train the distributions',
-                    default=2000)
+                    default=200)
 
 
 if __name__ == '__main__':
