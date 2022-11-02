@@ -91,7 +91,7 @@ class MorphoMNISTVAE(nn.Module):
     def forward(self, x, c, num_samples=10):
         return self.elbo(x, c, num_samples=num_samples)
 
-    def elbo(self, x, c, num_samples=10, device='cpu'):
+    def elbo(self, x, c, num_samples=10, device='cpu', kl_weight=1.0):
         z_mean, z_log_var = self.encoder(x, c)
         z_std = torch.exp(z_log_var * .5)
         lp = 0
@@ -104,7 +104,7 @@ class MorphoMNISTVAE(nn.Module):
         dkl = .5 * (torch.square(z_std) +
                     torch.square(z_mean) -
                     1 - 2 * torch.log(z_std)).sum(dim=1)
-        return (lp - dkl).mean()
+        return (lp - kl_weight * dkl).mean()
 
 
 def train(x_train: torch.Tensor,
@@ -139,7 +139,8 @@ def train(x_train: torch.Tensor,
             optimizer.zero_grad()
             elbo_loss = -vae.elbo(images, c,
                                   num_samples=num_samples_per_step,
-                                  device=device)
+                                  device=device,
+                                  kl_weight=100)
             elbo_loss.backward()
             optimizer.step()
             epoch_elbo = epoch_elbo + elbo_loss.item()
