@@ -158,9 +158,7 @@ def train(x_train: torch.Tensor,
 
         if save_images_every and (epoch + 1) % save_images_every == 0:
             n_show = 10
-            D.eval()
-            E.eval()
-            G.eval()
+            vae.eval()
 
             with torch.no_grad():
                 # generate images from same class as real ones
@@ -175,8 +173,8 @@ def train(x_train: torch.Tensor,
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
-                gener = G(z, c).reshape(n_show, 28, 28).cpu().numpy()
-                recon = G(E(x, c), c).reshape(n_show, 28, 28).cpu().numpy()
+                gener = vae.decoder(z, c).reshape(n_show, 28, 28).cpu().numpy()
+                recon = vae.decoder(vae.encoder(x, c), c).reshape(n_show, 28, 28).cpu().numpy()
                 real = xdemo
 
                 if save_images_every is not None:
@@ -200,4 +198,4 @@ def train(x_train: torch.Tensor,
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()
 
-    return E, G, D, optimizer_D, optimizer_E
+    return vae, optimizer
