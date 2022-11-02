@@ -84,19 +84,9 @@ class MorphoMNISTVAE(nn.Module):
         self.dec_transform = MNISTDecoderTransformation(self.decoder,
                                                         device=device)
 
-        alpha = 0.05
-        num_bits = 8
-        a1 = T.AffineTransform(0., (1. / 2 ** num_bits))
-
-        # Map into unconstrained space as done in RealNVP
-        a2 = T.AffineTransform(alpha, (1 - alpha))
-
-        s = T.SigmoidTransform()
-        preprocess_transform = T.ComposeTransform([a1, a2, s.inv])
-
         self.dist = dist.ConditionalTransformedDistribution(self.base,
                                                             [self.dec_transform,
-                                                             preprocess_transform.inv])
+                                                             T.SigmoidTransform()])
 
     def forward(self, x, c, num_samples=10):
         return self.elbo(x, c, num_samples=num_samples)
@@ -200,11 +190,11 @@ def train(x_train: torch.Tensor,
                     fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
 
                     for i in range(n_show):
-                        ax[0, i].imshow(gener[i], cmap='gray', vmin=0, vmax=255)
+                        ax[0, i].imshow(gener[i], cmap='gray', vmin=0, vmax=1)
                         ax[0, i].axis('off')
                         ax[1, i].imshow(real[i], cmap='gray', vmin=0, vmax=255)
                         ax[1, i].axis('off')
-                        ax[2, i].imshow(recon[i], cmap='gray', vmin=0, vmax=255)
+                        ax[2, i].imshow(recon[i], cmap='gray', vmin=0, vmax=1)
                         ax[2, i].axis('off')
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()
