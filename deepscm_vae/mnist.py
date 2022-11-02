@@ -200,11 +200,11 @@ def train(x_train: torch.Tensor,
                     fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
 
                     for i in range(n_show):
-                        ax[0, i].imshow(gener[i], cmap='gray', vmin=0, vmax=1)
+                        ax[0, i].imshow(gener[i], cmap='gray', vmin=0, vmax=255)
                         ax[0, i].axis('off')
                         ax[1, i].imshow(real[i], cmap='gray', vmin=0, vmax=255)
                         ax[1, i].axis('off')
-                        ax[2, i].imshow(recon[i], cmap='gray', vmin=0, vmax=1)
+                        ax[2, i].imshow(recon[i], cmap='gray', vmin=0, vmax=255)
                         ax[2, i].axis('off')
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()
