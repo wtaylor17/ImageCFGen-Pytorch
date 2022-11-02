@@ -97,8 +97,8 @@ class MorphoMNISTVAE(nn.Module):
         x_reshaped = x.reshape((-1, 28 * 28))
         for _ in range(num_samples):
             z = z_mean + torch.randn(z_mean.shape).to(device) * z_std
-            zc = torch.concat([z, c], dim=-1)
-            lp = lp + self.dist.condition(zc).log_prob(x_reshaped)
+            z_c = torch.concat([z, c], dim=1)
+            lp = lp + self.dist.condition(z_c).log_prob(x_reshaped)
         lp = lp / num_samples
         dkl = .5 * (torch.square(z_std) +
                     torch.square(z_mean) -
@@ -114,7 +114,7 @@ def train(x_train: torch.Tensor,
           n_epochs=200,
           l_rate=1e-4,
           device='cpu',
-          save_images_every=10,
+          save_images_every=5,
           image_output_path='.',
           num_samples_per_step=4):
     vae = MorphoMNISTVAE(device=device)
@@ -164,9 +164,11 @@ def train(x_train: torch.Tensor,
 
                 gener = vae.decoder(z, c).reshape(n_show, 28, 28).cpu().numpy()
                 sample = 0
-                for _ in range(32):
-                    sample = sample + vae.encoder.sample(x, c, device)
-                sample = sample / 32
+                for i in range(32):
+                    z = vae.encoder.sample(x, c, device)
+                    context = torch.concat([z, c], dim=1)
+                    sample = sample + vae.dist.condition(context).sample(context.size(0))
+                sample /= 32
                 recon = vae.decoder(sample, c).reshape(n_show, 28, 28).cpu().numpy()
                 real = xdemo.cpu().numpy()
 
