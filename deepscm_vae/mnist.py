@@ -99,7 +99,7 @@ class MorphoMNISTVAE(nn.Module):
         for _ in range(num_samples):
             z = z_mean + torch.randn(z_mean.shape).to(device) * z_std
             z_c = torch.concat([z, c], dim=1)
-            lp = lp + self.condition(z_c).log_prob(x_reshaped)
+            lp = lp + self.dist.condition(z_c).log_prob(x_reshaped)
         lp = lp / num_samples
         dkl = .5 * (torch.square(z_std) +
                     torch.square(z_mean) -
