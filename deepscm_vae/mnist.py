@@ -72,8 +72,11 @@ class VAEDecoder(nn.Module):
             nn.ConvTranspose2d(64, 1, (4, 4), (2, 2), (1, 1))
         )
 
-    def forward(self, z, c):
-        features = torch.concat([z, c], dim=-1)
+    def forward(self, z, c=None):
+        if c is not None:
+            features = torch.concat([z, c], dim=-1)
+        else:
+            features = z
         return self.layers(features)
 
 
@@ -81,11 +84,10 @@ class MNISTDecoderTransformation(ConditionalTransform):
     def __init__(self, decoder: nn.Module, log_var=-5,
                  device='cpu'):
         self.decoder = decoder
-        self.scale = torch.exp(torch.ones((28, 28)) * log_var).to(device)
+        self.scale = torch.exp(torch.ones((28*28,)) * log_var).to(device)
 
     def condition(self, context):
-        z, c = context
-        bias = self.decoder(z, c).reshape((-1, 28, 28))
+        bias = self.decoder(context).reshape((-1, 28*28))
         return T.AffineTransform(bias, self.scale)
 
 
@@ -95,8 +97,8 @@ class MorphoMNISTVAE(nn.Module):
         self.encoder = VAEEncoder(parent_dim).to(device)
         self.decoder = VAEDecoder(parent_dim).to(device)
         self.preprocess = realnvp_preprocess_transform()
-        self.base = dist.MultivariateNormal(torch.zeros((28, 28)).to(device),
-                                            covariance_matrix=torch.eye(28).to(device))
+        self.base = dist.MultivariateNormal(torch.zeros((28*28,)).to(device),
+                                            covariance_matrix=torch.eye(28*28).to(device))
         self.dec_transform = MNISTDecoderTransformation(self.decoder,
                                                         device=device)
         self.dist = dist.ConditionalTransformedDistribution(self.base,
@@ -109,10 +111,12 @@ class MorphoMNISTVAE(nn.Module):
     def elbo(self, x, c, num_samples=10, device='cpu'):
         z_mean, z_log_var = self.encoder(x, c)
         z_std = torch.exp(z_log_var * .5)
-        lp = torch.zeros(z_mean.size(0))
+        lp = 0
+        x_reshaped = x.reshape((-1, 28*28))
         for _ in range(num_samples):
             z = z_mean + torch.randn(z_mean.shape).to(device) * z_std
-            lp = lp + self.dist.condition((z, c)).log_prob(x)
+            zc = torch.concat([z, c], dim=-1)
+            lp = lp + self.dist.condition(zc).log_prob(x_reshaped)
         lp = lp / num_samples
         dkl = .5 * (torch.square(z_std) +
                     torch.square(z_mean) -
