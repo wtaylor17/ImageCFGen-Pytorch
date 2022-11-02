@@ -83,9 +83,20 @@ class MorphoMNISTVAE(nn.Module):
                                             covariance_matrix=torch.eye(28 * 28).to(device))
         self.dec_transform = MNISTDecoderTransformation(self.decoder,
                                                         device=device)
+
+        alpha = 0.05
+        num_bits = 8
+        a1 = T.AffineTransform(0., (1. / 2 ** num_bits))
+
+        # Map into unconstrained space as done in RealNVP
+        a2 = T.AffineTransform(alpha, (1 - alpha))
+
+        s = T.SigmoidTransform()
+        preprocess_transform = T.ComposeTransform([a1, a2, s.inv])
+
         self.dist = dist.ConditionalTransformedDistribution(self.base,
                                                             [self.dec_transform,
-                                                             T.SigmoidTransform()])
+                                                             preprocess_transform.inv])
 
     def forward(self, x, c, num_samples=10):
         return self.elbo(x, c, num_samples=num_samples)
@@ -166,7 +177,7 @@ def train(x_train: torch.Tensor,
                     context = torch.concat([z, c], dim=1)
                     gener = gener + vae.dist.condition(context).sample()
                 gener = gener.cpu().detach().numpy().reshape((n_show, 28, 28)) / 32
-                
+
                 recon = 0
                 for i in range(32):
                     z = vae.encoder.sample(x, c, device)
