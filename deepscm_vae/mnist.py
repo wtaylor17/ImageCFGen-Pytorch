@@ -169,7 +169,6 @@ def train(x_train: torch.Tensor,
                     z = vae.encoder.sample(x, c, device)
                     context = torch.concat([z, c], dim=1)
                     recon = recon + vae.dist.condition(context).sample()
-                    print(recon.shape)
 
                 recon = recon.cpu().detach().numpy().reshape((n_show, 28, 28)) / 32
 
@@ -189,7 +188,7 @@ def train(x_train: torch.Tensor,
                     for i in range(n_show):
                         ax[0, i].imshow(gener[i], cmap='gray', vmin=0, vmax=1)
                         ax[0, i].axis('off')
-                        ax[1, i].imshow(real[i], cmap='gray', vmin=0, vmax=1)
+                        ax[1, i].imshow(real[i], cmap='gray', vmin=0, vmax=255)
                         ax[1, i].axis('off')
                         ax[2, i].imshow(recon[i], cmap='gray', vmin=0, vmax=1)
                         ax[2, i].axis('off')
