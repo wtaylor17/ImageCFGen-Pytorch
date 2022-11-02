@@ -9,23 +9,6 @@ from tqdm import tqdm
 from .training_utils import batchify, init_weights
 
 
-def realnvp_preprocess_transform():
-    alpha = 0.05
-    num_bits = 8
-
-    # Map to [0,1]
-    a1 = T.AffineTransform(0., (1. / 2 ** num_bits))
-
-    # Map into unconstrained space as done in RealNVP
-    a2 = T.AffineTransform(alpha, (1 - alpha))
-
-    s = T.SigmoidTransform()
-
-    preprocess_transform = T.ComposeTransform([a1, a2, s.inv])
-
-    return preprocess_transform
-
-
 class VAEEncoder(nn.Module):
     def __init__(self, parent_dim=13):
         super().__init__()
@@ -96,14 +79,13 @@ class MorphoMNISTVAE(nn.Module):
         super().__init__()
         self.encoder = VAEEncoder(parent_dim).to(device)
         self.decoder = VAEDecoder(parent_dim).to(device)
-        self.preprocess = realnvp_preprocess_transform()
         self.base = dist.MultivariateNormal(torch.zeros((28 * 28,)).to(device),
                                             covariance_matrix=torch.eye(28 * 28).to(device))
         self.dec_transform = MNISTDecoderTransformation(self.decoder,
                                                         device=device)
         self.dist = dist.ConditionalTransformedDistribution(self.base,
                                                             [self.dec_transform,
-                                                             self.preprocess])
+                                                             T.SigmoidTransform()])
 
     def forward(self, x, c, num_samples=10):
         return self.elbo(x, c, num_samples=num_samples)
