@@ -62,8 +62,8 @@ class VAEDecoder(nn.Module):
             nn.Linear(16 + parent_dim, 1024),
             nn.BatchNorm1d(1024),
             nn.ReLU(),
-            nn.Linear(1024, 64*7*7),
-            nn.BatchNorm1d(64*7*7),
+            nn.Linear(1024, 64 * 7 * 7),
+            nn.BatchNorm1d(64 * 7 * 7),
             nn.ReLU(),
             nn.Unflatten(1, (64, 7, 7)),
             nn.ConvTranspose2d(64, 64, (4, 4), (2, 2), (1, 1)),
@@ -84,10 +84,10 @@ class MNISTDecoderTransformation(ConditionalTransform):
     def __init__(self, decoder: nn.Module, log_var=-5,
                  device='cpu'):
         self.decoder = decoder
-        self.scale = torch.exp(torch.ones((28*28,)) * log_var).to(device)
+        self.scale = torch.exp(torch.ones((28 * 28,)) * log_var).to(device)
 
     def condition(self, context):
-        bias = self.decoder(context).reshape((-1, 28*28))
+        bias = self.decoder(context).reshape((-1, 28 * 28))
         return T.AffineTransform(bias, self.scale)
 
 
@@ -97,8 +97,8 @@ class MorphoMNISTVAE(nn.Module):
         self.encoder = VAEEncoder(parent_dim).to(device)
         self.decoder = VAEDecoder(parent_dim).to(device)
         self.preprocess = realnvp_preprocess_transform()
-        self.base = dist.MultivariateNormal(torch.zeros((28*28,)).to(device),
-                                            covariance_matrix=torch.eye(28*28).to(device))
+        self.base = dist.MultivariateNormal(torch.zeros((28 * 28,)).to(device),
+                                            covariance_matrix=torch.eye(28 * 28).to(device))
         self.dec_transform = MNISTDecoderTransformation(self.decoder,
                                                         device=device)
         self.dist = dist.ConditionalTransformedDistribution(self.base,
@@ -112,7 +112,7 @@ class MorphoMNISTVAE(nn.Module):
         z_mean, z_log_var = self.encoder(x, c)
         z_std = torch.exp(z_log_var * .5)
         lp = 0
-        x_reshaped = x.reshape((-1, 28*28))
+        x_reshaped = x.reshape((-1, 28 * 28))
         for _ in range(num_samples):
             z = z_mean + torch.randn(z_mean.shape).to(device) * z_std
             zc = torch.concat([z, c], dim=-1)
@@ -135,7 +135,6 @@ def train(x_train: torch.Tensor,
           save_images_every=10,
           image_output_path='',
           num_samples_per_step=10):
-
     vae = MorphoMNISTVAE(device=device)
     vae.encoder.apply(init_weights)
     vae.decoder.apply(init_weights)
@@ -155,9 +154,9 @@ def train(x_train: torch.Tensor,
             c[:, scale_a_after:] = (c[:, scale_a_after:] - c_min) / (c_max - c_min)
 
             optimizer.zero_grad()
-            elbo_loss = vae.elbo(images, c,
-                                 num_samples=num_samples_per_step,
-                                 device=device)
+            elbo_loss = -vae.elbo(images, c,
+                                  num_samples=num_samples_per_step,
+                                  device=device)
             elbo_loss.backward()
             optimizer.step()
             epoch_elbo = epoch_elbo + elbo_loss.item()
