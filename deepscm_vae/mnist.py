@@ -114,7 +114,7 @@ def train(x_train: torch.Tensor,
           n_epochs=200,
           l_rate=1e-4,
           device='cpu',
-          save_images_every=5,
+          save_images_every=1,
           image_output_path='.',
           num_samples_per_step=4):
     vae = MorphoMNISTVAE(device=device)
