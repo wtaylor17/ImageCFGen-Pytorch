@@ -165,7 +165,7 @@ def train(x_train: torch.Tensor,
                 gener = vae.decoder(z, c).reshape(n_show, 28, 28).cpu().numpy()
                 recon = vae.decoder(vae.encoder.sample(x, c, device), c)\
                            .reshape(n_show, 28, 28).cpu().numpy()
-                real = xdemo
+                real = xdemo.cpu().numpy()
 
                 if save_images_every is not None:
                     import matplotlib.pyplot as plt
