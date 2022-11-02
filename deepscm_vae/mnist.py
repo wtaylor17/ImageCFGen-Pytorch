@@ -159,6 +159,7 @@ def train(x_train: torch.Tensor,
                 c[:, scale_a_after:] = (c[:, scale_a_after:] - c_min) / (c_max - c_min)
 
                 z_mean = torch.zeros((len(x), 16)).float()
+                gener = 0
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
@@ -167,7 +168,7 @@ def train(x_train: torch.Tensor,
                 for i in range(32):
                     z = vae.encoder.sample(x, c, device)
                     context = torch.concat([z, c], dim=1)
-                    sample = sample + vae.dist.condition(context).sample(context.size(0))
+                    sample = sample + vae.dist.condition(context).sample(xdemo.shape)
                 sample /= 32
                 recon = vae.decoder(sample, c).reshape(n_show, 28, 28).cpu().numpy()
                 real = xdemo.cpu().numpy()
@@ -184,11 +185,11 @@ def train(x_train: torch.Tensor,
                     fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
 
                     for i in range(n_show):
-                        ax[0, i].imshow(gener[i], cmap='gray')
+                        ax[0, i].imshow(gener[i], cmap='gray', vmin=0, vmax=1)
                         ax[0, i].axis('off')
-                        ax[1, i].imshow(real[i], cmap='gray')
+                        ax[1, i].imshow(real[i], cmap='gray', vmin=0, vmax=1)
                         ax[1, i].axis('off')
-                        ax[2, i].imshow(recon[i], cmap='gray')
+                        ax[2, i].imshow(recon[i], cmap='gray', vmin=0, vmax=1)
                         ax[2, i].axis('off')
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()
