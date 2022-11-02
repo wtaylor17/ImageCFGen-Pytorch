@@ -167,7 +167,7 @@ def train(x_train: torch.Tensor,
                 for _ in range(32):
                     sample = sample + vae.encoder.sample(x, c, device)
                 sample = sample / 32
-                recon = vae.decoder(sample).reshape(n_show, 28, 28).cpu().numpy()
+                recon = vae.decoder(sample, c).reshape(n_show, 28, 28).cpu().numpy()
                 real = xdemo.cpu().numpy()
 
                 if save_images_every is not None:
