@@ -116,7 +116,7 @@ def train(x_train: torch.Tensor,
           device='cpu',
           save_images_every=10,
           image_output_path='.',
-          num_samples_per_step=10):
+          num_samples_per_step=4):
     vae = MorphoMNISTVAE(device=device)
     vae.encoder.apply(init_weights)
     vae.decoder.apply(init_weights)
@@ -155,7 +155,7 @@ def train(x_train: torch.Tensor,
                 ademo = a_test[:n_show]
                 x = xdemo.reshape((-1, 1, 28, 28)).float().to(device) / 255
                 c = torch.clone(ademo.reshape((-1, 13))).float().to(device)
-                c_min, c_max = c[:, scale_a_after:].min(dim=0).values, c[:, scale_a_after:].max(dim=0).values
+                c_min, c_max = a_train[:, scale_a_after:].min(dim=0).values, a_train[:, scale_a_after:].max(dim=0).values
                 c[:, scale_a_after:] = (c[:, scale_a_after:] - c_min) / (c_max - c_min)
 
                 z_mean = torch.zeros((len(x), 16)).float()
@@ -163,8 +163,11 @@ def train(x_train: torch.Tensor,
                 z = z.to(device)
 
                 gener = vae.decoder(z, c).reshape(n_show, 28, 28).cpu().numpy()
-                recon = vae.decoder(vae.encoder.sample(x, c, device), c)\
-                           .reshape(n_show, 28, 28).cpu().numpy()
+                sample = 0
+                for _ in range(32):
+                    sample = sample + vae.encoder.sample(x, c, device)
+                sample = sample / 32
+                recon = vae.decoder(sample).reshape(n_show, 28, 28).cpu().numpy()
                 real = xdemo.cpu().numpy()
 
                 if save_images_every is not None:
