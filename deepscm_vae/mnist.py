@@ -168,7 +168,7 @@ def train(x_train: torch.Tensor,
                 for i in range(32):
                     z = vae.encoder.sample(x, c, device)
                     context = torch.concat([z, c], dim=1)
-                    recon = recon + vae.dist.condition(context).sample((n_show,))
+                    recon = recon + vae.dist.condition(context).sample()
                     print(recon.shape)
 
                 recon = recon.cpu().detach().numpy().reshape((n_show, 28, 28)) / 32
