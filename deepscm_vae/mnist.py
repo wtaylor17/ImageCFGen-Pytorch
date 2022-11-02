@@ -159,11 +159,14 @@ def train(x_train: torch.Tensor,
                 c[:, scale_a_after:] = (c[:, scale_a_after:] - c_min) / (c_max - c_min)
 
                 z_mean = torch.zeros((len(x), 16)).float()
-                gener = 0
-                z = torch.normal(z_mean, z_mean + 1)
-                z = z.to(device)
 
-                gener = vae.decoder(z, c).reshape(n_show, 28, 28).cpu().numpy()
+                gener = 0
+                for _ in range(32):
+                    z = torch.normal(z_mean, z_mean + 1).to(device)
+                    context = torch.concat([z, c], dim=1)
+                    gener = gener + vae.dist.condition(context).sample()
+                gener = gener.cpu().detach().numpy().reshape((n_show, 28, 28)) / 32
+                
                 recon = 0
                 for i in range(32):
                     z = vae.encoder.sample(x, c, device)
