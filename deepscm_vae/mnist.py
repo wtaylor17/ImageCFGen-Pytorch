@@ -158,7 +158,7 @@ def train(x_train: torch.Tensor,
                 c_min, c_max = c[:, scale_a_after:].min(dim=0).values, c[:, scale_a_after:].max(dim=0).values
                 c[:, scale_a_after:] = (c[:, scale_a_after:] - c_min) / (c_max - c_min)
 
-                z_mean = torch.zeros((len(x), 512, 1, 1)).float()
+                z_mean = torch.zeros((len(x), 16)).float()
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
