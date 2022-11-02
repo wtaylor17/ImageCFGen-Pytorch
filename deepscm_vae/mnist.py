@@ -151,7 +151,9 @@ def train(x_train: torch.Tensor,
             c[:, scale_a_after:] = (c[:, scale_a_after:] - c_min) / (c_max - c_min)
 
             optimizer.zero_grad()
-            elbo_loss = vae.elbo(images, c, num_samples=num_samples_per_step)
+            elbo_loss = vae.elbo(images, c,
+                                 num_samples=num_samples_per_step,
+                                 device=device)
             elbo_loss.backward()
             optimizer.step()
             epoch_elbo = epoch_elbo + elbo_loss.item()
