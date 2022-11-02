@@ -32,10 +32,10 @@ class VAEEncoder(nn.Module):
         features = torch.concat([upstream_e, c], dim=-1)
         return self.mean_linear(features), self.log_var_linear(features)
 
-    def sample(self, x, c):
+    def sample(self, x, c, device='cpu'):
         mean, log_var = self(x, c)
         var = torch.exp(log_var)
-        return mean + torch.randn(mean.shape) * var
+        return mean + torch.randn(mean.shape).to(device) * var
 
 
 class VAEDecoder(nn.Module):
@@ -163,7 +163,8 @@ def train(x_train: torch.Tensor,
                 z = z.to(device)
 
                 gener = vae.decoder(z, c).reshape(n_show, 28, 28).cpu().numpy()
-                recon = vae.decoder(vae.encoder.sample(x, c), c).reshape(n_show, 28, 28).cpu().numpy()
+                recon = vae.decoder(vae.encoder.sample(x, c, device), c)\
+                           .reshape(n_show, 28, 28).cpu().numpy()
                 real = xdemo
 
                 if save_images_every is not None:
