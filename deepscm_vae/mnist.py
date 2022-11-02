@@ -80,8 +80,8 @@ class MorphoMNISTVAE(nn.Module):
         super().__init__()
         self.encoder = VAEEncoder(parent_dim).to(device)
         self.decoder = VAEDecoder(parent_dim).to(device)
-        self.base = dist.Normal(torch.zeros((28*28,)).to(device),
-                                torch.ones((28*28,)).to(device))
+        self.base = dist.MultivariateNormal(torch.zeros((28*28,)).to(device),
+                                            torch.eye(28).to(device))
         self.dec_transform = MNISTDecoderTransformation(self.decoder,
                                                         device=device)
 
