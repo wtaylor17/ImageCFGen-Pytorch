@@ -115,7 +115,7 @@ def train(x_train: torch.Tensor,
           l_rate=1e-4,
           device='cpu',
           save_images_every=10,
-          image_output_path='',
+          image_output_path='.',
           num_samples_per_step=10):
     vae = MorphoMNISTVAE(device=device)
     vae.encoder.apply(init_weights)
@@ -174,9 +174,9 @@ def train(x_train: torch.Tensor,
                     fig.subplots_adjust(wspace=0.05, hspace=0)
                     plt.rcParams.update({'font.size': 20})
                     fig.suptitle('Epoch {}'.format(epoch + 1))
-                    fig.text(0.04, 0.75, 'G(z, c)', ha='left')
-                    fig.text(0.04, 0.5, 'x', ha='left')
-                    fig.text(0.04, 0.25, 'G(E(x, c), c)', ha='left')
+                    fig.text(0.01, 0.75, 'G(z, c)', ha='left')
+                    fig.text(0.01, 0.5, 'x', ha='left')
+                    fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
 
                     for i in range(n_show):
                         ax[0, i].imshow(gener[i], cmap='gray')
