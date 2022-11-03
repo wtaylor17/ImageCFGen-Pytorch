@@ -169,16 +169,13 @@ def train(x_train: torch.Tensor,
                 gener = 0
                 for i in range(32):
                     z = torch.normal(z_mean, z_mean + 1).to(device)
-                    context = torch.concat([z, c], dim=1)
-                    gener = gener + vae.dist.condition(context).sample()
+                    gener = gener + vae.decoder(z, c)
                 gener = gener.cpu().detach().numpy().reshape((n_show, 28, 28)) / 32
 
                 recon = 0
                 for i in range(32):
                     z = vae.encoder.sample(x, c, device)
-                    context = torch.concat([z, c], dim=1)
-                    recon = recon + vae.dist.condition(context).sample()
-
+                    recon = recon + vae.decoder(z, c)
                 recon = recon.cpu().detach().numpy().reshape((n_show, 28, 28)) / 32
 
                 real = xdemo.cpu().numpy()
