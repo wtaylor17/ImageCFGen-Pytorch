@@ -10,7 +10,7 @@ from .training_utils import batchify, init_weights
 
 
 class VAEEncoder(nn.Module):
-    def __init__(self, parent_dim=13):
+    def __init__(self, latent_dim=32, parent_dim=13):
         super().__init__()
         self.upstream_layers = nn.Sequential(
             nn.Conv2d(1, 64, (4, 4), (2, 2), 1),
@@ -24,8 +24,8 @@ class VAEEncoder(nn.Module):
             nn.BatchNorm1d(100),
             nn.LeakyReLU(0.1)
         )
-        self.mean_linear = nn.Linear(100 + parent_dim, 16)
-        self.log_var_linear = nn.Linear(100 + parent_dim, 16)
+        self.mean_linear = nn.Linear(100 + parent_dim, latent_dim)
+        self.log_var_linear = nn.Linear(100 + parent_dim, latent_dim)
 
     def forward(self, x, c):
         upstream_e = self.upstream_layers(x)
@@ -39,10 +39,10 @@ class VAEEncoder(nn.Module):
 
 
 class VAEDecoder(nn.Module):
-    def __init__(self, parent_dim=13):
+    def __init__(self, latent_dim=32, parent_dim=13):
         super().__init__()
         self.layers = nn.Sequential(
-            nn.Linear(16 + parent_dim, 1024),
+            nn.Linear(latent_dim + parent_dim, 1024),
             nn.BatchNorm1d(1024),
             nn.ReLU(),
             nn.Linear(1024, 64 * 7 * 7),
@@ -76,10 +76,12 @@ class MNISTDecoderTransformation(ConditionalTransform):
 
 
 class MorphoMNISTVAE(nn.Module):
-    def __init__(self, parent_dim=13, device='cpu'):
+    def __init__(self, parent_dim=13, latent_dim=32, device='cpu'):
         super().__init__()
-        self.encoder = VAEEncoder(parent_dim).to(device)
-        self.decoder = VAEDecoder(parent_dim).to(device)
+        self.encoder = VAEEncoder(parent_dim=parent_dim,
+                                  latent_dim=latent_dim).to(device)
+        self.decoder = VAEDecoder(parent_dim=parent_dim,
+                                  latent_dim=latent_dim).to(device)
         self.base = dist.MultivariateNormal(torch.zeros((28*28,)).to(device),
                                             torch.eye(28*28).to(device))
         self.dec_transform = MNISTDecoderTransformation(self.decoder,
@@ -118,8 +120,9 @@ def train(x_train: torch.Tensor,
           save_images_every=1,
           image_output_path='.',
           num_samples_per_step=4,
-          kl_weight=10):
-    vae = MorphoMNISTVAE(device=device)
+          kl_weight=10,
+          latent_dim=32):
+    vae = MorphoMNISTVAE(device=device, latent_dim=latent_dim)
     vae.encoder.apply(init_weights)
     vae.decoder.apply(init_weights)
     optimizer = torch.optim.Adam(vae.parameters(),
@@ -161,7 +164,7 @@ def train(x_train: torch.Tensor,
                 c_min, c_max = a_train[:, scale_a_after:].min(dim=0).values, a_train[:, scale_a_after:].max(dim=0).values
                 c[:, scale_a_after:] = (c[:, scale_a_after:] - c_min) / (c_max - c_min)
 
-                z_mean = torch.zeros((len(x), 16)).float()
+                z_mean = torch.zeros((len(x), latent_dim)).float()
 
                 gener = 0
                 for i in range(32):
