@@ -163,11 +163,9 @@ def train(x_train: torch.Tensor,
 
                 z_mean = torch.zeros((len(x), 16)).float()
 
-                gener = 0
-                for _ in range(32):
-                    z = torch.normal(z_mean, z_mean + 1).to(device)
-                    context = torch.concat([z, c], dim=1)
-                    gener = gener + vae.dist.condition(context).sample()
+                z = torch.normal(z_mean, z_mean + 1).to(device)
+                context = torch.concat([z, c], dim=1)
+                gener = gener + vae.dist.condition(context).sample()
                 gener = gener.cpu().detach().numpy().reshape((n_show, 28, 28)) / 32
 
                 recon = 0
@@ -187,9 +185,9 @@ def train(x_train: torch.Tensor,
                     fig.subplots_adjust(wspace=0.05, hspace=0)
                     plt.rcParams.update({'font.size': 20})
                     fig.suptitle('Epoch {}'.format(epoch + 1))
-                    fig.text(0.01, 0.75, 'G(z, c)', ha='left')
-                    fig.text(0.01, 0.5, 'x', ha='left')
-                    fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
+                    fig.text(0, 0.75, 'Generated', ha='left')
+                    fig.text(0, 0.5, 'Original', ha='left')
+                    fig.text(0, 0.25, 'Reconstructed', ha='left')
 
                     for i in range(n_show):
                         ax[0, i].imshow(gener[i], cmap='gray', vmin=0, vmax=1)
