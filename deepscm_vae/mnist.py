@@ -117,7 +117,8 @@ def train(x_train: torch.Tensor,
           device='cpu',
           save_images_every=1,
           image_output_path='.',
-          num_samples_per_step=4):
+          num_samples_per_step=4,
+          kl_weight=10):
     vae = MorphoMNISTVAE(device=device)
     vae.encoder.apply(init_weights)
     vae.decoder.apply(init_weights)
@@ -140,7 +141,7 @@ def train(x_train: torch.Tensor,
             elbo_loss = -vae.elbo(images, c,
                                   num_samples=num_samples_per_step,
                                   device=device,
-                                  kl_weight=100)
+                                  kl_weight=kl_weight)
             elbo_loss.backward()
             optimizer.step()
             epoch_elbo = epoch_elbo + elbo_loss.item()
