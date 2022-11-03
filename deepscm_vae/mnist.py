@@ -165,8 +165,8 @@ def train(x_train: torch.Tensor,
 
                 z = torch.normal(z_mean, z_mean + 1).to(device)
                 context = torch.concat([z, c], dim=1)
-                gener = gener + vae.dist.condition(context).sample()
-                gener = gener.cpu().detach().numpy().reshape((n_show, 28, 28)) / 32
+                gener = vae.dist.condition(context).sample()
+                gener = gener.cpu().detach().numpy().reshape((n_show, 28, 28))
 
                 recon = 0
                 for i in range(32):
