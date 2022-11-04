@@ -35,8 +35,8 @@ class VAEEncoder(nn.Module):
             nn.BatchNorm1d(64),
             nn.LeakyReLU(0.1)
         )
-        self.mean_linear = nn.Linear(100 + parent_dim, latent_dim)
-        self.log_var_linear = nn.Linear(100 + parent_dim, latent_dim)
+        self.mean_linear = nn.Linear(64, latent_dim)
+        self.log_var_linear = nn.Linear(64, latent_dim)
 
     def forward(self, x, c):
         upstream_e = self.upstream_layers(x)
