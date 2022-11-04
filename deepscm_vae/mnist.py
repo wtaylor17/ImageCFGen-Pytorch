@@ -16,14 +16,14 @@ class VAEEncoder(nn.Module):
             nn.Conv2d(1, 64, (3, 3), (1, 1), 1),
             nn.BatchNorm2d(64),
             nn.LeakyReLU(0.1),
-            nn.Conv2d(1, 128, (4, 4), (2, 2), 1),
+            nn.Conv2d(64, 128, (4, 4), (2, 2), 1),
             nn.BatchNorm2d(128),
             nn.LeakyReLU(0.1),
-            nn.Conv2d(64, 256, (4, 4), (2, 2), 1),
+            nn.Conv2d(128, 256, (4, 4), (2, 2), 1),
             nn.BatchNorm2d(256),
             nn.LeakyReLU(0.1),
             nn.Flatten(),
-            nn.Linear(128 * 7 * 7, 100),
+            nn.Linear(256 * 7 * 7, 100),
             nn.BatchNorm1d(100),
             nn.LeakyReLU(0.1)
         )
