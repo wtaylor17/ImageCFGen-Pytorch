@@ -27,13 +27,22 @@ class VAEEncoder(nn.Module):
             nn.BatchNorm1d(100),
             nn.LeakyReLU(0.1)
         )
+        self.downstream_layers = nn.Sequential(
+            nn.Linear(100 + parent_dim, 100),
+            nn.BatchNorm1d(100),
+            nn.LeakyReLU(0.1),
+            nn.Linear(100, 64),
+            nn.BatchNorm1d(64),
+            nn.LeakyReLU(0.1)
+        )
         self.mean_linear = nn.Linear(100 + parent_dim, latent_dim)
         self.log_var_linear = nn.Linear(100 + parent_dim, latent_dim)
 
     def forward(self, x, c):
         upstream_e = self.upstream_layers(x)
         features = torch.concat([upstream_e, c], dim=-1)
-        return self.mean_linear(features), self.log_var_linear(features)
+        downstream_e = self.downstream_layers(features)
+        return self.mean_linear(downstream_e), self.log_var_linear(downstream_e)
 
     def sample(self, x, c, device='cpu'):
         mean, log_var = self(x, c)
