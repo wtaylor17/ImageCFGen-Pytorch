@@ -107,10 +107,16 @@ def get_components(s, cutoff=0.005):
     return sc, dc, imfs
 
 
-## add noise
+## noise
 def add_white_noise(x, alpha=0.05):
     noise = np.random.normal(0, np.std(x), x.shape) * alpha
     return x+noise
+
+
+def add_shot_noise(x, alpha=5):
+    noise = np.random.poisson(alpha, x.shape)
+    return x+noise
+
 
 ## standardization
 def standardization(x):
