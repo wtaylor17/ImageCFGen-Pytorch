@@ -18,7 +18,7 @@ parser.add_argument('--kl-weight',
                     default=10)
 parser.add_argument('--latent-dim',
                     type=int,
-                    default=32)
+                    default=16)
 
 if __name__ == '__main__':
     sns.set()
