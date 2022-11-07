@@ -207,7 +207,7 @@ def train(x_train: torch.Tensor,
 
                 gener = G(z, c).reshape(n_show, 28, 28).cpu().numpy()
                 recon = G(E(x, c), c).reshape(n_show, 28, 28).cpu().numpy()
-                real = xdemo
+                real = xdemo.cpu().numpy() / 255
 
                 if save_images_every is not None:
                     import matplotlib.pyplot as plt
@@ -221,11 +221,11 @@ def train(x_train: torch.Tensor,
                     fig.text(0.04, 0.25, 'G(E(x, c), c)', ha='left')
 
                     for i in range(n_show):
-                        ax[0, i].imshow(gener[i], cmap='gray')
+                        ax[0, i].imshow(gener[i], cmap='gray', vmin=0, vmax=1)
                         ax[0, i].axis('off')
-                        ax[1, i].imshow(real[i], cmap='gray')
+                        ax[1, i].imshow(real[i], cmap='gray', vmin=0, vmax=1)
                         ax[1, i].axis('off')
-                        ax[2, i].imshow(recon[i], cmap='gray')
+                        ax[2, i].imshow(recon[i], cmap='gray', vmin=0, vmax=1)
                         ax[2, i].axis('off')
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()
