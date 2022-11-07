@@ -130,7 +130,7 @@ def train(x_train: torch.Tensor,
           n_epochs=200,
           l_rate=1e-4,
           device='cpu',
-          save_images_every=10,
+          save_images_every=2,
           image_output_path=''):
     E = Encoder().to(device)
     G = Generator().to(device)
