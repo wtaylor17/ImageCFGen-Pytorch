@@ -12,23 +12,23 @@ class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(2),
             nn.Conv2d(2, 32, (5, 5), (1, 1)),
-            nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
+            nn.LeakyReLU(0.1),
             nn.Conv2d(32, 64, (4, 4), (2, 2)),
-            nn.LeakyReLU(0.1),
             nn.BatchNorm2d(64),
+            nn.LeakyReLU(0.1),
             nn.Conv2d(64, 128, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
             nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.1),
             nn.Conv2d(128, 256, (4, 4), (2, 2)),
-            nn.LeakyReLU(0.1),
             nn.BatchNorm2d(256),
-            nn.Conv2d(256, 512, (3, 3), (1, 1)),
             nn.LeakyReLU(0.1),
+            nn.Conv2d(256, 512, (3, 3), (1, 1)),
             nn.BatchNorm2d(512),
-            nn.Conv2d(512, 512, (1, 1), (1, 1))
+            nn.LeakyReLU(0.1),
+            nn.Conv2d(512, 512, (1, 1), (1, 1)),
+            nn.BatchNorm2d(512)
         )
 
     @property
@@ -43,23 +43,23 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(512 + 13),
             nn.ConvTranspose2d(512 + 13, 256, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
             nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.1),
             nn.ConvTranspose2d(256, 128, (4, 4), (2, 2)),
+            nn.BatchNorm2d(128),
             nn.LeakyReLU(0.1),
             nn.ConvTranspose2d(128, 64, (4, 4), (1, 1)),
             nn.BatchNorm2d(64),
             nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(64),
             nn.ConvTranspose2d(64, 32, (4, 4), (2, 2)),
-            nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
+            nn.LeakyReLU(0.1),
             nn.ConvTranspose2d(32, 32, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
+            nn.LeakyReLU(0.1),
             nn.ConvTranspose2d(32, 1, (1, 1), (1, 1)),
+            nn.BatchNorm2d(1),
             nn.Sigmoid()
         )
 
@@ -84,20 +84,20 @@ class Discriminator(nn.Module):
             nn.Conv2d(2, 32, (5, 5), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.Dropout2d(0.2),
-            nn.BatchNorm2d(32),
             nn.Conv2d(32, 64, (4, 4), (2, 2)),
-            nn.LeakyReLU(0.1),
             nn.BatchNorm2d(64),
+            nn.LeakyReLU(0.1),
             nn.Dropout2d(0.5),
             nn.Conv2d(64, 128, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
             nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.1),
             nn.Dropout2d(0.5),
             nn.Conv2d(128, 256, (4, 4), (2, 2)),
-            nn.LeakyReLU(0.1),
             nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.1),
             nn.Dropout2d(0.5),
             nn.Conv2d(256, 512, (3, 3), (1, 1)),
+            nn.BatchNorm2d(512),
             nn.LeakyReLU(0.1)
         )
         self.dxz = nn.Sequential(
