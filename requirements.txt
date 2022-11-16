@@ -8,3 +8,5 @@ tqdm
 pyro-ppl
 seaborn
 pytorch-msssim
+librosa
+sklearn
