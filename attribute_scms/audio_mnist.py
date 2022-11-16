@@ -218,8 +218,8 @@ def train(path_to_zip: str,
     age_dist = age_distribution(device)
     gender_dist = categorical_mle(ds["gender"], device=device)
 
-    optimizer = torch.optim.Adam(dist_parameters(native_speaker_dist) +
-                                 dist_parameters(accent_dist) +
+    optimizer = torch.optim.Adam(list(native_speaker_dist.model.parameters()) +
+                                 list(accent_dist.model.parameters()) +
                                  dist_parameters(age_dist),
                                  lr=1e-2)
 
@@ -231,10 +231,10 @@ def train(path_to_zip: str,
     tq = tqdm(range(steps))
     for _ in tq:
         idx = np.random.permutation(country.size(0))
-        batches = list(batchify(country,
-                                native_speaker,
-                                accent,
-                                age,
+        batches = list(batchify(country[idx],
+                                native_speaker[idx],
+                                accent[idx],
+                                age[idx],
                                 batch_size=10_000))
         epoch_loss = 0
         for c, n, a, ag in batches:
