@@ -124,6 +124,8 @@ class AudioMNISTData:
                 native_speaker = subject_meta["native speaker"]
                 accent = subject_meta["accent"]
                 age = int(subject_meta["age"])
+                if age > 100:  # error in data
+                    age = 22
                 gender = subject_meta["gender"]
                 file_list = zf.read("spectrograms/01_files.txt").decode("utf-8").split("\n")
                 digits = [file_name.split('/')[-1].split('_')[0]
