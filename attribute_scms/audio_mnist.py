@@ -214,7 +214,7 @@ def train(path_to_zip: str,
         ds["accent"].size(1),
         ds["country_of_origin"].size(1)
     )
-    digit_dist = categorical_mle(ds["label"].argmax(dim=1), device=device)
+    digit_dist = categorical_mle(ds["digit"].argmax(dim=1), device=device)
     age_dist = age_distribution(device)
     gender_dist = categorical_mle(ds["gender"], device=device)
 
