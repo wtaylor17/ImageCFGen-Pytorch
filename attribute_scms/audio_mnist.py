@@ -37,9 +37,9 @@ class ConditionalCategorical(dist.ConditionalDistribution):
         logits = self.model(context)
         return torch.argmax(logits + noise, dim=-1)
 
-    def noise_sample(self, y: torch.Tensor, context: torch.Tensor):
+    def noise_sample(self, y: torch.Tensor, context: torch.Tensor, device="cpu"):
         inds = list(range(y.size(0)))
-        g = self.gumbel.sample(y.shape + (self.n_categories,))
+        g = self.gumbel.sample(y.shape + (self.n_categories,)).to(device)
         gk = g[inds, y]
         logits = self.model(context)
         noise_k = gk + logits.exp().sum(dim=-1).log() - logits[inds, y]
@@ -48,11 +48,11 @@ class ConditionalCategorical(dist.ConditionalDistribution):
         noise_l[inds, y] = noise_k
         return y
 
-    def counterfactual(self, y, original_context, cf_context, mc_rounds=1):
+    def counterfactual(self, y, original_context, cf_context, mc_rounds=1, device="cpu"):
         cf_logits = mc_rounds * self.model(cf_context)
 
         for _ in range(mc_rounds):
-            cf_logits = cf_logits + self.noise_sample(y, original_context)
+            cf_logits = cf_logits + self.noise_sample(y, original_context, device=device)
         cf_logits = cf_logits / mc_rounds
 
         return torch.argmax(cf_logits, dim=-1)
