@@ -212,7 +212,8 @@ def train(path_to_zip: str,
     )
     accent_dist = conditional_categorical_mle(
         ds["accent"].size(1),
-        ds["country_of_origin"].size(1)
+        ds["country_of_origin"].size(1),
+        device=device
     )
     digit_dist = categorical_mle(ds["digit"].argmax(dim=1), device=device)
     age_dist = age_distribution(device)
