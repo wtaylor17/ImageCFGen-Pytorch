@@ -8,7 +8,7 @@ from zipfile import ZipFile
 from sklearn.preprocessing import OneHotEncoder, KBinsDiscretizer
 from tqdm import tqdm
 
-from .training_utils import batchify, dist_parameters
+from .training_utils import batchify
 
 
 def gumbel_distribution():
@@ -217,8 +217,7 @@ def train(path_to_zip: str,
     gender_dist = categorical_mle(ds["gender"], device=device)
 
     optimizer = torch.optim.Adam(list(native_speaker_dist.model.parameters()) +
-                                 list(accent_dist.model.parameters()) +
-                                 dist_parameters(age_dist),
+                                 list(accent_dist.model.parameters()),
                                  lr=lr)
 
     country = ds["country_of_origin"]
@@ -238,11 +237,9 @@ def train(path_to_zip: str,
         for c, n, a, ag in batches:
             optimizer.zero_grad()
             loss = -(native_speaker_dist.condition(c).log_prob(n.argmax(dim=1)) +
-                     accent_dist.condition(c).log_prob(a.argmax(dim=1)) +
-                     age_dist.log_prob(ag)).mean()
+                     accent_dist.condition(c).log_prob(a.argmax(dim=1))).mean()
             loss.backward()
             optimizer.step()
-            age_dist.clear_cache()
             epoch_loss += loss.item()
         tq.set_description(f'loss = {round(epoch_loss / len(batches), 4)}')
 
