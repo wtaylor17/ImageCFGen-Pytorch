@@ -28,20 +28,20 @@ class ConditionalCategorical(dist.ConditionalDistribution):
         self.gumbel = gumbel_distribution()
         self.n_categories = n_categories
 
-    def condition(self, context):
-        logits = self.model(context)
+    def condition(self, *context):
+        logits = self.model(*context)
         return dist.Categorical(logits=logits)
 
-    def forward(self, noise, context):
+    def forward(self, noise, *context):
         # computes f(noise;context)
-        logits = self.model(context)
+        logits = self.model(*context)
         return torch.argmax(logits + noise, dim=-1)
 
-    def noise_sample(self, y: torch.Tensor, context: torch.Tensor, device="cpu"):
+    def noise_sample(self, y: torch.Tensor, *context, device="cpu"):
         inds = list(range(y.size(0)))
         g = self.gumbel.sample(y.shape + (self.n_categories,)).to(device)
         gk = g[inds, y]
-        logits = self.model(context)
+        logits = self.model(*context)
         noise_k = gk + logits.exp().sum(dim=-1).log() - logits[inds, y]
         noise_l = -torch.log(torch.exp(-g - logits) +
                              torch.exp(-gk - logits[inds, y])) - logits
@@ -49,10 +49,10 @@ class ConditionalCategorical(dist.ConditionalDistribution):
         return y
 
     def counterfactual(self, y, original_context, cf_context, mc_rounds=1, device="cpu"):
-        cf_logits = mc_rounds * self.model(cf_context)
+        cf_logits = mc_rounds * self.model(*cf_context)
 
         for _ in range(mc_rounds):
-            cf_logits = cf_logits + self.noise_sample(y, original_context, device=device)
+            cf_logits = cf_logits + self.noise_sample(y, *original_context, device=device)
         cf_logits = cf_logits / mc_rounds
 
         return torch.argmax(cf_logits, dim=-1)
@@ -73,6 +73,20 @@ def dense_net(n_in: int,
     return seq
 
 
+class ComboNet(torch.nn.Module):
+    def __init__(self, downstream_model, *models):
+        super().__init__()
+        self.models = models
+        self.downstream = downstream_model
+
+    def forward(self, *inputs):
+        features = torch.concat(
+            [f(i) for f, i in zip(self.models, inputs)],
+            dim=-1
+        )
+        return self.downstream(features)
+
+
 def categorical_mle(data_train: torch.Tensor, device="cpu"):
     data_train = data_train.to(device)
     values, counts = data_train.unique(return_counts=True)
@@ -86,6 +100,20 @@ def conditional_categorical_mle(n_categories: int,
     nn = dense_net(context_dim, 128, n_categories,
                    n_hidden_layers=2).to(device)
     return ConditionalCategorical(nn, n_categories)
+
+
+def conditional_double_categorical_mle(n_categories: int,
+                                       context_dim1: int,
+                                       context_dim2: int,
+                                       device="cpu"):
+    nn1 = dense_net(context_dim1, 64, 64,
+                    n_hidden_layers=2).to(device)
+    nn2 = dense_net(context_dim2, 64, 64,
+                    n_hidden_layers=2).to(device)
+    downstream = dense_net(128, 64, n_categories,
+                           n_hidden_layers=0).to(device)
+    combo = ComboNet(downstream, nn1, nn2)
+    return ConditionalCategorical(combo, n_categories)
 
 
 class AudioMNISTData:
@@ -150,29 +178,11 @@ class AudioMNISTData:
                     self.data[k] = self.data[k].reshape((-1, 1))
 
             for feature in ["country_of_origin",
-                            "accent", "digit"]:
+                            "accent", "digit",
+                            "native_speaker", "gender"]:
                 one_hot = OneHotEncoder(sparse=False).fit(self.data[feature])
                 self.transforms[feature] = one_hot.transform
                 self.inv_transforms[feature] = one_hot.inverse_transform
-
-            def binary_transforms(v1, v2):
-                def transform(x):
-                    y = np.zeros_like(x, dtype=float)
-                    y[x == v2] = 1
-                    return y
-
-                def inv_transform(y):
-                    x = np.empty_like(y, dtype=object)
-                    x[y == 0] = v1
-                    x[y == 1] = v2
-                    return x
-
-                return transform, inv_transform
-
-            self.transforms["gender"], \
-                self.inv_transforms["gender"] = binary_transforms("female", "male")
-            self.transforms["native_speaker"], \
-                self.inv_transforms["native_speaker"] = binary_transforms("no", "yes")
 
             discretizer = KBinsDiscretizer(encode="onehot-dense",
                                            strategy="uniform")
@@ -214,9 +224,10 @@ def train(path_to_zip: str,
         ds["country_of_origin"].size(1),
         device=device
     )
-    accent_dist = conditional_categorical_mle(
+    accent_dist = conditional_double_categorical_mle(
         ds["accent"].size(1),
         ds["country_of_origin"].size(1),
+        ds["native_speaker"].size(1),
         device=device
     )
     digit_dist = categorical_mle(ds["digit"].argmax(dim=1), device=device)
@@ -244,7 +255,7 @@ def train(path_to_zip: str,
         for c, n, a, ag in batches:
             optimizer.zero_grad()
             loss = -(native_speaker_dist.condition(c).log_prob(n.argmax(dim=1)) +
-                     accent_dist.condition(c).log_prob(a.argmax(dim=1))).mean()
+                     accent_dist.condition((c, n)).log_prob(a.argmax(dim=1))).mean()
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
