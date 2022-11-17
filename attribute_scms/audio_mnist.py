@@ -255,7 +255,7 @@ def train(path_to_zip: str,
         for c, n, a, ag in batches:
             optimizer.zero_grad()
             loss = -(native_speaker_dist.condition(c).log_prob(n.argmax(dim=1)) +
-                     accent_dist.condition((c, n)).log_prob(a.argmax(dim=1))).mean()
+                     accent_dist.condition(c, n).log_prob(a.argmax(dim=1))).mean()
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
