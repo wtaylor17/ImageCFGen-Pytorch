@@ -168,7 +168,7 @@ class AudioMNISTData:
             self.transforms["native_speaker"], \
                 self.inv_transforms["native_speaker"] = binary_transforms("no", "yes")
 
-            discretizer = KBinsDiscretizer()
+            discretizer = KBinsDiscretizer(encode="onehot-dense")
             discretizer.fit(self.data["age"])
             self.transforms["age"] = discretizer.transform
             self.inv_transforms["age"] = discretizer.inverse_transform
