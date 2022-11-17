@@ -113,15 +113,21 @@ class AudioMNISTData:
                 spectrogram = np.load(BytesIO(zf.read(spect_name)))
                 self.data["spectrogram"].append(spectrogram)
 
-                country = subject_meta["origin"].split(", ")[1]
+                country = subject_meta["origin"].split(", ")[1].lower()
+                if country == "spanien":
+                    country = "spain"
+
                 native_speaker = subject_meta["native speaker"]
-                accent = subject_meta["accent"]
+                accent = subject_meta["accent"].lower()
+                if accent == "german/spanish":
+                    accent = "german"
+
                 age = int(subject_meta["age"])
                 if age > 100:  # error in data
-                    age = 22
+                    age = 28
                 gender = subject_meta["gender"]
-                file_list = zf.read("spectrograms/01_files.txt").decode("utf-8").split("\n")
-                digits = [file_name.split('/')[-1].split('_')[0]
+                file_list = zf.read(f"spectrograms/{subject_name}_files.txt").decode("utf-8").split("\n")
+                digits = [int(file_name.split('/')[-1].split('_')[0])
                           for file_name in file_list]
 
                 N = len(spectrogram)
@@ -168,7 +174,8 @@ class AudioMNISTData:
             self.transforms["native_speaker"], \
                 self.inv_transforms["native_speaker"] = binary_transforms("no", "yes")
 
-            discretizer = KBinsDiscretizer(encode="onehot-dense")
+            discretizer = KBinsDiscretizer(encode="onehot-dense",
+                                           strategy="uniform")
             discretizer.fit(self.data["age"])
             self.transforms["age"] = discretizer.transform
             self.inv_transforms["age"] = discretizer.inverse_transform
