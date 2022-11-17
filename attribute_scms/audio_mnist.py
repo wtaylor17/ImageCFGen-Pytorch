@@ -5,7 +5,7 @@ import pyro.distributions.transforms as T
 import json
 from io import BytesIO
 from zipfile import ZipFile
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, KBinsDiscretizer
 from tqdm import tqdm
 
 from .training_utils import batchify, dist_parameters
@@ -78,13 +78,6 @@ def categorical_mle(data_train: torch.Tensor, device="cpu"):
     values, counts = data_train.unique(return_counts=True)
     probs = counts / data_train.size(0)
     return dist.Categorical(probs=probs)
-
-
-def age_distribution(device='cpu'):
-    a_base = dist.Normal(torch.zeros(1).to(device), torch.ones(1).to(device))
-    transforms = [T.Spline(1).to(device),
-                  T.SigmoidTransform()]
-    return dist.TransformedDistribution(a_base, transforms)
 
 
 def conditional_categorical_mle(n_categories: int,
@@ -175,9 +168,10 @@ class AudioMNISTData:
             self.transforms["native_speaker"], \
                 self.inv_transforms["native_speaker"] = binary_transforms("no", "yes")
 
-            min_age, max_age = self.data["age"].min(), self.data["age"].max()
-            self.transforms["age"] = lambda x: (x - min_age) / (max_age - min_age)
-            self.inv_transforms["age"] = lambda x: x * (max_age - min_age) + min_age
+            discretizer = KBinsDiscretizer()
+            discretizer.fit(self.data["age"])
+            self.transforms["age"] = discretizer.transform
+            self.inv_transforms["age"] = discretizer.inverse_transform
 
     def stream(self, batch_size: int = 128, transform: bool = True, shuffle: bool = True):
         N = len(self.data["spectrogram"])
@@ -199,7 +193,8 @@ class AudioMNISTData:
 
 def train(path_to_zip: str,
           steps=2000,
-          device='cpu'):
+          device='cpu',
+          lr=1e-2):
     data = AudioMNISTData(path_to_zip)
     ds = list(data.stream(batch_size=30_000))[0]
     ds = {
@@ -218,13 +213,13 @@ def train(path_to_zip: str,
         device=device
     )
     digit_dist = categorical_mle(ds["digit"].argmax(dim=1), device=device)
-    age_dist = age_distribution(device)
+    age_dist = categorical_mle(ds["age"].argmax(dim=1), device=device)
     gender_dist = categorical_mle(ds["gender"], device=device)
 
     optimizer = torch.optim.Adam(list(native_speaker_dist.model.parameters()) +
                                  list(accent_dist.model.parameters()) +
                                  dist_parameters(age_dist),
-                                 lr=1e-2)
+                                 lr=lr)
 
     country = ds["country_of_origin"]
     native_speaker = ds["native_speaker"]
