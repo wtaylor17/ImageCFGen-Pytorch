@@ -318,7 +318,7 @@ def train(path_to_zip: str,
         G.train()
 
         vmin, vmax = float('inf'), -float('inf')
-        for i, batch in tqdm(data.stream(), total=n_batches):
+        for i, batch in enumerate(tqdm(data.stream(), total=n_batches)):
             images = batch["audio"].reshape((-1, 1, 201, 201)).float().to(device)
             attrs = torch.concat([batch[k] for k in attr_cols], dim=1)
             c = torch.clone(attrs.reshape((-1, 47))).float().to(device)
