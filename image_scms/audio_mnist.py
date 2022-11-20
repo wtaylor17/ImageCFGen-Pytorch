@@ -353,13 +353,13 @@ def train(path_to_zip: str,
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
-                gener = G(z, c).reshape(n_show, *image_shape).cpu().numpy()
-                gener = gener * 3 * spect_std + spect_mean
-                recon = G(E(x, c), c).reshape(n_show, *image_shape).cpu().numpy()
-                recon = recon * 3 * spect_std + spect_mean
-                real = x.reshape((n_show, *image_shape)).cpu().numpy()
-                real = real * 3 * spect_std + spect_mean
-                vmin, vmax = real.min().item(), real.max().item()
+                gener = G(z, c).reshape(n_show, *image_shape)
+                gener = (gener * 3 * spect_std + spect_mean).cpu().numpy()
+                recon = G(E(x, c), c).reshape(n_show, *image_shape)
+                recon = (recon * 3 * spect_std + spect_mean).cpu().numpy()
+                real = x.reshape((n_show, *image_shape))
+                real = (real * 3 * spect_std + spect_mean).cpu().numpy()
+                vmin, vmax = real.min(), real.max()
 
                 if save_images_every is not None:
                     import matplotlib.pyplot as plt
