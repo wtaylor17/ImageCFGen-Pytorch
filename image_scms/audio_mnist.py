@@ -354,8 +354,12 @@ def train(path_to_zip: str,
                 z = z.to(device)
 
                 gener = G(z, c).reshape(n_show, *image_shape).cpu().numpy()
+                gener = gener * 3 * spect_std + spect_mean
                 recon = G(E(x, c), c).reshape(n_show, *image_shape).cpu().numpy()
+                recon = recon * 3 * spect_std + spect_mean
                 real = x.reshape((n_show, *image_shape)).cpu().numpy()
+                real = real * 3 * spect_std + spect_mean
+                vmin, vmax = real.min().item(), real.max().item()
 
                 if save_images_every is not None:
                     import matplotlib.pyplot as plt
@@ -369,11 +373,11 @@ def train(path_to_zip: str,
                     fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
 
                     for i in range(n_show):
-                        ax[0, i].imshow(gener[i].T, vmin=-1, vmax=1)
+                        ax[0, i].imshow(gener[i].T, vmin=vmin, vmax=vmax)
                         ax[0, i].axis('off')
-                        ax[1, i].imshow(real[i].T, vmin=-1, vmax=1)
+                        ax[1, i].imshow(real[i].T, vmin=vmin, vmax=vmax)
                         ax[1, i].axis('off')
-                        ax[2, i].imshow(recon[i].T, vmin=-1, vmax=1)
+                        ax[2, i].imshow(recon[i].T, vmin=vmin, vmax=vmax)
                         ax[2, i].axis('off')
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()
