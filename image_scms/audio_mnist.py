@@ -303,8 +303,8 @@ def train(path_to_zip: str,
         spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 2), keepdim=True)
     print('Done')
 
-    spect_mean = spect_mean / n_batches
-    spect_ss = spect_ss / n_batches
+    spect_mean = (spect_mean / n_batches).float().to(device)
+    spect_ss = (spect_ss / n_batches).float().to(device)
 
     spect_std = spect_ss - spect_mean
 
