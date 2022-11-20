@@ -194,8 +194,7 @@ class Generator(nn.Module):
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(16),
             nn.ConvTranspose2d(16, 1, (1, 1), (1, 1)),
-            LambdaLayer(lambda x: x[:, :, :201, :201]),
-            nn.Sigmoid()
+            LambdaLayer(lambda x: x[:, :, :201, :201])
         )
 
     def forward(self, z, a):
