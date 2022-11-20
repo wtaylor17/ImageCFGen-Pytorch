@@ -13,7 +13,7 @@ import librosa
 from scipy.io.wavfile import read as read_wav
 from functools import partial
 
-from .training_utils import batchify, attributes_image, LambdaLayer
+from .training_utils import batchify, attributes_image, LambdaLayer, init_weights, AdversariallyLearnedInference
 
 
 class AudioMNISTData:
@@ -267,3 +267,126 @@ class Discriminator(nn.Module):
         dx = self.dx(attributes_image(X, a, device=self.device))
         dz = self.dz(z)
         return self.dxz(torch.concat([dx, dz], dim=1)).reshape((-1, 1))
+
+
+def train(path_to_zip: str,
+          n_epochs=200,
+          l_rate=1e-4,
+          device='cpu',
+          save_images_every=2,
+          image_output_path=''):
+    E = Encoder().to(device)
+    G = Generator().to(device)
+    D = Discriminator().to(device)
+
+    E.apply(init_weights)
+    G.apply(init_weights)
+    D.apply(init_weights)
+
+    optimizer_E = torch.optim.Adam(list(E.parameters()) + list(G.parameters()),
+                                   lr=l_rate, betas=(0.5, 0.999))
+    optimizer_D = torch.optim.Adam(D.parameters(),
+                                   lr=l_rate, betas=(0.5, 0.999))
+
+    loss_calc = AdversariallyLearnedInference(E, G, D)
+
+    data = AudioMNISTData(path_to_zip, device=device)
+
+    spect_mean, spect_ss, n_batches = 0, 0, 0
+
+    for batch in data.stream():
+        n_batches += 1
+        spect_mean = spect_mean + batch["audio"].mean(dim=(0, 2), keepdim=True)
+        spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 2), keepdim=True)
+
+    spect_mean = spect_mean / n_batches
+    spect_ss = spect_ss / n_batches
+
+    spect_std = spect_ss - spect_mean
+
+    attr_cols = [k for k in data.data if k != "audio"]
+
+    for epoch in range(n_epochs):
+        D_score = 0.
+        EG_score = 0.
+        D.train()
+        E.train()
+        G.train()
+
+        vmin, vmax = float('inf'), -float('inf')
+        for i, batch in tqdm(data.stream(), total=n_batches):
+            images = batch["audio"].reshape((-1, 1, 201, 201)).float().to(device)
+            attrs = torch.concat([batch[k] for k in attr_cols], dim=1)
+            c = torch.clone(attrs.reshape((-1, 47))).float().to(device)
+            images = (images - spect_mean) / spect_std
+            vmin = min(vmin, images.min().item())
+            vmax = max(vmax, images.max().item())
+
+            z_mean = torch.zeros((len(images), 512, 1, 1)).float()
+            z = torch.normal(z_mean, z_mean + 1).to(device)
+
+            # Discriminator training
+            optimizer_D.zero_grad()
+            loss_D = loss_calc.discriminator_loss(images, z, c)
+            loss_D.backward()
+            optimizer_D.step()
+
+            # Encoder & Generator training
+            optimizer_E.zero_grad()
+            loss_EG = loss_calc.generator_loss(images, z, c)
+            loss_EG.backward()
+            optimizer_E.step()
+
+            Gz = G(z, c).detach()
+            EX = E(images, c).detach()
+            DG = D(Gz, z, c)
+            DE = D(images, EX, c)
+            D_score += DG.mean().item()
+            EG_score += DE.mean().item()
+
+        print(D_score / n_batches, EG_score / n_batches)
+
+        if save_images_every and (epoch + 1) % save_images_every == 0:
+            n_show = 4
+            D.eval()
+            E.eval()
+            G.eval()
+
+            with torch.no_grad():
+                # generate images from same class as real ones
+                demo_batch = next(data.stream(batch_size=n_show))
+                images = demo_batch["audio"].reshape((-1, 1, 201, 201)).float().to(device)
+                attrs = torch.concat([demo_batch[k] for k in attr_cols], dim=1)
+                c = torch.clone(attrs.reshape((-1, 47))).float().to(device)
+                x = (images - spect_mean) / spect_std
+
+                z_mean = torch.zeros((len(x), 512, 1, 1)).float()
+                z = torch.normal(z_mean, z_mean + 1)
+                z = z.to(device)
+
+                gener = G(z, c).reshape(n_show, 28, 28).cpu().numpy()
+                recon = G(E(x, c), c).reshape(n_show, 28, 28).cpu().numpy()
+                real = x.cpu().numpy()
+
+                if save_images_every is not None:
+                    import matplotlib.pyplot as plt
+
+                    fig, ax = plt.subplots(3, n_show, figsize=(15, 5))
+                    fig.subplots_adjust(wspace=0.05, hspace=0)
+                    plt.rcParams.update({'font.size': 20})
+                    fig.suptitle('Epoch {}'.format(epoch + 1))
+                    fig.text(0.01, 0.75, 'G(z, c)', ha='left')
+                    fig.text(0.01, 0.5, 'x', ha='left')
+                    fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
+
+                    for i in range(n_show):
+                        ax[0, i].imshow(gener[i], vmin=vmin, vmax=vmax)
+                        ax[0, i].axis('off')
+                        ax[1, i].imshow(real[i], vmin=vmin, vmax=vmax)
+                        ax[1, i].axis('off')
+                        ax[2, i].imshow(recon[i], vmin=vmin, vmax=vmax)
+                        ax[2, i].axis('off')
+                    plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
+                    plt.close()
+
+    return E, G, D, optimizer_D, optimizer_E
