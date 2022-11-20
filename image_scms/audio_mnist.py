@@ -171,8 +171,8 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(512 + 47),
-            nn.ConvTranspose2d(512 + 47, 512, (5, 5), (2, 2)),
+            nn.BatchNorm2d(512 + 46),
+            nn.ConvTranspose2d(512 + 46, 512, (5, 5), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(512),
             nn.ConvTranspose2d(512, 256, (4, 4), (2, 2)),
@@ -199,7 +199,7 @@ class Generator(nn.Module):
         )
 
     def forward(self, z, a):
-        a = a.reshape((-1, 47, 1, 1))
+        a = a.reshape((-1, 46, 1, 1))
         return self.layers(torch.concat([z, a], dim=1))
 
 
@@ -321,7 +321,7 @@ def train(path_to_zip: str,
         for i, batch in enumerate(tqdm(data.stream(), total=n_batches)):
             images = batch["audio"].reshape((-1, 1, 201, 201)).float().to(device)
             attrs = torch.concat([batch[k] for k in attr_cols], dim=1)
-            c = torch.clone(attrs.reshape((-1, 47))).float().to(device)
+            c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
             images = (images - spect_mean) / spect_std
             vmin = min(vmin, images.min().item())
             vmax = max(vmax, images.max().item())
@@ -361,7 +361,7 @@ def train(path_to_zip: str,
                 demo_batch = next(data.stream(batch_size=n_show))
                 images = demo_batch["audio"].reshape((-1, 1, 201, 201)).float().to(device)
                 attrs = torch.concat([demo_batch[k] for k in attr_cols], dim=1)
-                c = torch.clone(attrs.reshape((-1, 47))).float().to(device)
+                c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
                 x = (images - spect_mean) / spect_std
 
                 z_mean = torch.zeros((len(x), 512, 1, 1)).float()
