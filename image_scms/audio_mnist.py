@@ -370,7 +370,7 @@ def train(path_to_zip: str,
 
                 gener = G(z, c).reshape(n_show, 201, 201).cpu().numpy()
                 recon = G(E(x, c), c).reshape(n_show, 201, 201).cpu().numpy()
-                real = x.cpu().numpy()
+                real = x.reshape((n_show, 201, 201)).cpu().numpy()
 
                 if save_images_every is not None:
                     import matplotlib.pyplot as plt
@@ -384,11 +384,11 @@ def train(path_to_zip: str,
                     fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
 
                     for i in range(n_show):
-                        ax[0, i].imshow(gener[i].T, vmin=vmin, vmax=vmax)
+                        ax[0, i].imshow(gener[i].T)
                         ax[0, i].axis('off')
-                        ax[1, i].imshow(real[i].T, vmin=vmin, vmax=vmax)
+                        ax[1, i].imshow(real[i].T)
                         ax[1, i].axis('off')
-                        ax[2, i].imshow(recon[i].T, vmin=vmin, vmax=vmax)
+                        ax[2, i].imshow(recon[i].T)
                         ax[2, i].axis('off')
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()
