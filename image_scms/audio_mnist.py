@@ -282,10 +282,12 @@ def train(path_to_zip: str,
     spect_mean, spect_ss, n_batches = 0, 0, 0
 
     print('Computing spectrogram statistics...')
+    image_shape = (130, 130)
     for batch in data.stream(batch_size=batch_size):
         n_batches += 1
         spect_mean = spect_mean + batch["audio"].mean(dim=(0, 2), keepdim=True)
         spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 2), keepdim=True)
+        image_shape = batch["audio"].shape[1:]
     print('Done')
 
     spect_mean = (spect_mean / n_batches).float().to(device)
@@ -302,7 +304,7 @@ def train(path_to_zip: str,
         E.train()
         G.train()
         for i, batch in enumerate(tqdm(data.stream(batch_size=batch_size), total=n_batches)):
-            images = batch["audio"].reshape((-1, 1, 201, 201)).float().to(device)
+            images = batch["audio"].reshape((-1, 1, *image_shape)).float().to(device)
             attrs = torch.concat([batch[k] for k in attr_cols], dim=1)
             c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
             images = (images - spect_mean) / spect_std
@@ -341,7 +343,7 @@ def train(path_to_zip: str,
             with torch.no_grad():
                 # generate images from same class as real ones
                 demo_batch = next(data.stream(batch_size=n_show))
-                images = demo_batch["audio"].reshape((-1, 1, 201, 201)).float().to(device)
+                images = demo_batch["audio"].reshape((-1, 1, *image_shape)).float().to(device)
                 attrs = torch.concat([demo_batch[k] for k in attr_cols], dim=1)
                 c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
                 x = (images - spect_mean) / spect_std
@@ -351,9 +353,9 @@ def train(path_to_zip: str,
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
-                gener = G(z, c).reshape(n_show, 201, 201).cpu().numpy()
-                recon = G(E(x, c), c).reshape(n_show, 201, 201).cpu().numpy()
-                real = x.reshape((n_show, 201, 201)).cpu().numpy()
+                gener = G(z, c).reshape(n_show, *image_shape).cpu().numpy()
+                recon = G(E(x, c), c).reshape(n_show, *image_shape).cpu().numpy()
+                real = x.reshape((n_show, *image_shape)).cpu().numpy()
 
                 if save_images_every is not None:
                     import matplotlib.pyplot as plt
