@@ -274,6 +274,7 @@ def train(path_to_zip: str,
           l_rate=1e-4,
           device='cpu',
           save_images_every=2,
+          batch_size=128,
           image_output_path=''):
     E = Encoder().to(device)
     G = Generator().to(device)
@@ -297,7 +298,7 @@ def train(path_to_zip: str,
     spect_mean, spect_ss, n_batches = 0, 0, 0
 
     print('Computing spectrogram statistics...')
-    for batch in data.stream():
+    for batch in data.stream(batch_size=batch_size):
         n_batches += 1
         spect_mean = spect_mean + batch["audio"].mean(dim=(0, 2), keepdim=True)
         spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 2), keepdim=True)
@@ -318,7 +319,7 @@ def train(path_to_zip: str,
         G.train()
 
         vmin, vmax = float('inf'), -float('inf')
-        for i, batch in enumerate(tqdm(data.stream(), total=n_batches)):
+        for i, batch in enumerate(tqdm(data.stream(batch_size=batch_size), total=n_batches)):
             images = batch["audio"].reshape((-1, 1, 201, 201)).float().to(device)
             attrs = torch.concat([batch[k] for k in attr_cols], dim=1)
             c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
