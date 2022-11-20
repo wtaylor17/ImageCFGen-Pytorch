@@ -92,3 +92,12 @@ def init_weights(layer):
         torch.nn.init.normal_(layer.weight, mean=0, std=0.01)
         if layer.bias is not None:
             torch.nn.init.constant_(layer.bias, 0)
+
+
+class LambdaLayer(nn.Module):
+    def __init__(self, fn):
+        super().__init__()
+        self.fn = fn
+
+    def forward(self, *args, **kwargs):
+        return self.fn(*args, **kwargs)

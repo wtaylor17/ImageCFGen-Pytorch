@@ -10,3 +10,4 @@ seaborn
 pytorch-msssim
 librosa
 sklearn
+torchaudio
