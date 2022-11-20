@@ -290,14 +290,18 @@ def train(path_to_zip: str,
 
     loss_calc = AdversariallyLearnedInference(E, G, D)
 
+    print('Loading dataset...')
     data = AudioMNISTData(path_to_zip, device=device)
+    print('Done')
 
     spect_mean, spect_ss, n_batches = 0, 0, 0
 
+    print('Computing spectrogram statistics...')
     for batch in data.stream():
         n_batches += 1
         spect_mean = spect_mean + batch["audio"].mean(dim=(0, 2), keepdim=True)
         spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 2), keepdim=True)
+    print('Done')
 
     spect_mean = spect_mean / n_batches
     spect_ss = spect_ss / n_batches
@@ -305,7 +309,7 @@ def train(path_to_zip: str,
     spect_std = spect_ss - spect_mean
 
     attr_cols = [k for k in data.data if k != "audio"]
-
+    print('Beginning training')
     for epoch in range(n_epochs):
         D_score = 0.
         EG_score = 0.
@@ -388,5 +392,6 @@ def train(path_to_zip: str,
                         ax[2, i].axis('off')
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()
+                    print('Images saved to', image_output_path)
 
     return E, G, D, optimizer_D, optimizer_E
