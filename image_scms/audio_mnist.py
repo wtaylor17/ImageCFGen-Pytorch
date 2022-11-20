@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import pyro.distributions as dist
-import pyro.distributions.transforms as T
 import json
 from io import BytesIO
 from zipfile import ZipFile
@@ -13,7 +11,7 @@ import librosa
 from scipy.io.wavfile import read as read_wav
 from functools import partial
 
-from .training_utils import batchify, attributes_image, LambdaLayer, init_weights, AdversariallyLearnedInference
+from .training_utils import attributes_image, LambdaLayer, init_weights, AdversariallyLearnedInference
 
 
 class AudioMNISTData:
@@ -31,9 +29,10 @@ class AudioMNISTData:
         self.transforms = {k: lambda x: x for k in self.data}
         self.inv_transforms = {k: lambda x: x for k in self.data}
 
-        self.audio_to_spectrogram = torchaudio.transforms.Spectrogram(win_length=80).to(device)
-        self.spectrogram_to_audio = torchaudio.transforms.GriffinLim(win_length=80).to(device)
-        self.resample = torchaudio.transforms.Resample()
+        self.audio_to_spectrogram = torchaudio.transforms.Spectrogram(n_fft=258,
+                                                                      hop_length=62).to(device)
+        self.spectrogram_to_audio = torchaudio.transforms.GriffinLim(n_fft=258,
+                                                                     hop_length=62).to(device)
         self.device = device
 
         with ZipFile(self.path_to_zip, "r") as zf:
@@ -149,10 +148,6 @@ class Encoder(nn.Module):
             nn.BatchNorm2d(128),
             nn.Conv2d(128, 256, (4, 4), (2, 2)),
             nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(256),
-            nn.Conv2d(256, 256, (3, 3), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(256),
             nn.Conv2d(256, 512, (2, 2), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(512),
@@ -172,29 +167,27 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.layers = nn.Sequential(
             nn.BatchNorm2d(512 + 46),
-            nn.ConvTranspose2d(512 + 46, 512, (5, 5), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(512),
-            nn.ConvTranspose2d(512, 256, (4, 4), (2, 2)),
+            nn.ConvTranspose2d(512 + 46, 256, (5, 5), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(256),
-            nn.ConvTranspose2d(256, 128, (3, 3), (2, 2)),
+            nn.ConvTranspose2d(256, 128, (4, 4), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(128),
             nn.ConvTranspose2d(128, 64, (3, 3), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(64),
+            nn.ConvTranspose2d(64, 64, (3, 3), (2, 2)),
+            nn.LeakyReLU(0.1),
+            nn.BatchNorm2d(64),
             nn.ConvTranspose2d(64, 32, (3, 3), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
-            nn.ConvTranspose2d(32, 32, (3, 3), (2, 2)),
+            nn.ConvTranspose2d(32, 32, (2, 2), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
-            nn.ConvTranspose2d(32, 16, (3, 3), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(16),
-            nn.ConvTranspose2d(16, 1, (1, 1), (1, 1)),
-            LambdaLayer(lambda x: x[:, :, :201, :201])
+            nn.ConvTranspose2d(32, 1, (1, 1), (1, 1)),
+            LambdaLayer(lambda x: x[:, :, :128, :128]),
+            nn.Tanh()
         )
 
     def forward(self, z, a):
@@ -235,15 +228,7 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(256),
             nn.Dropout2d(0.5),
-            nn.Conv2d(256, 256, (3, 3), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(256),
-            nn.Dropout2d(0.5),
-            nn.Conv2d(256, 512, (3, 3), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(512),
-            nn.Dropout2d(0.5),
-            nn.Conv2d(512, 512, (1, 1), (1, 1)),
+            nn.Conv2d(256, 512, (4, 4), (2, 2)),
             nn.LeakyReLU(0.1)
         )
         self.dxz = nn.Sequential(
@@ -316,15 +301,12 @@ def train(path_to_zip: str,
         D.train()
         E.train()
         G.train()
-
-        vmin, vmax = float('inf'), -float('inf')
         for i, batch in enumerate(tqdm(data.stream(batch_size=batch_size), total=n_batches)):
             images = batch["audio"].reshape((-1, 1, 201, 201)).float().to(device)
             attrs = torch.concat([batch[k] for k in attr_cols], dim=1)
             c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
             images = (images - spect_mean) / spect_std
-            vmin = min(vmin, images.min().item())
-            vmax = max(vmax, images.max().item())
+            images = torch.clip(images, -3, 3) / 3.0
 
             z_mean = torch.zeros((len(images), 512, 1, 1)).float()
             z = torch.normal(z_mean, z_mean + 1).to(device)
@@ -363,6 +345,7 @@ def train(path_to_zip: str,
                 attrs = torch.concat([demo_batch[k] for k in attr_cols], dim=1)
                 c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
                 x = (images - spect_mean) / spect_std
+                x = torch.clip(x, -3, 3) / 3.0
 
                 z_mean = torch.zeros((len(x), 512, 1, 1)).float()
                 z = torch.normal(z_mean, z_mean + 1)
@@ -384,11 +367,11 @@ def train(path_to_zip: str,
                     fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
 
                     for i in range(n_show):
-                        ax[0, i].imshow(gener[i].T)
+                        ax[0, i].imshow(gener[i].T, vmin=-1, vmax=1)
                         ax[0, i].axis('off')
-                        ax[1, i].imshow(real[i].T)
+                        ax[1, i].imshow(real[i].T, vmin=-1, vmax=1)
                         ax[1, i].axis('off')
-                        ax[2, i].imshow(recon[i].T)
+                        ax[2, i].imshow(recon[i].T, vmin=-1, vmax=1)
                         ax[2, i].axis('off')
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()
