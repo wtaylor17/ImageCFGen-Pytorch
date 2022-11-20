@@ -368,8 +368,8 @@ def train(path_to_zip: str,
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
-                gener = G(z, c).reshape(n_show, 28, 28).cpu().numpy()
-                recon = G(E(x, c), c).reshape(n_show, 28, 28).cpu().numpy()
+                gener = G(z, c).reshape(n_show, 201, 201).cpu().numpy()
+                recon = G(E(x, c), c).reshape(n_show, 201, 201).cpu().numpy()
                 real = x.cpu().numpy()
 
                 if save_images_every is not None:
@@ -384,11 +384,11 @@ def train(path_to_zip: str,
                     fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
 
                     for i in range(n_show):
-                        ax[0, i].imshow(gener[i], vmin=vmin, vmax=vmax)
+                        ax[0, i].imshow(gener[i].T, vmin=vmin, vmax=vmax)
                         ax[0, i].axis('off')
-                        ax[1, i].imshow(real[i], vmin=vmin, vmax=vmax)
+                        ax[1, i].imshow(real[i].T, vmin=vmin, vmax=vmax)
                         ax[1, i].axis('off')
-                        ax[2, i].imshow(recon[i], vmin=vmin, vmax=vmax)
+                        ax[2, i].imshow(recon[i].T, vmin=vmin, vmax=vmax)
                         ax[2, i].axis('off')
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()
