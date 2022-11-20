@@ -186,7 +186,7 @@ class Generator(nn.Module):
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
             nn.ConvTranspose2d(32, 1, (1, 1), (1, 1)),
-            LambdaLayer(lambda x: x[:, :, :128, :128]),
+            LambdaLayer(lambda x: x[:, :, :130, :130]),
             nn.Tanh()
         )
 
