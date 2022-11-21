@@ -272,6 +272,7 @@ def train(path_to_zip: str,
           save_images_every=2,
           batch_size=128,
           image_output_path=''):
+    stds_kept = 5
     E = Encoder().to(device)
     G = Generator().to(device)
     D = Discriminator().to(device)
@@ -320,7 +321,7 @@ def train(path_to_zip: str,
             attrs = torch.concat([batch[k] for k in attr_cols], dim=1)
             c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
             images = (images - spect_mean) / spect_std
-            images = torch.clip(images, -3, 3) / 3.0
+            images = torch.clip(images, -stds_kept, stds_kept) / float(stds_kept)
 
             z_mean = torch.zeros((len(images), 512, 1, 1)).float()
             z = torch.normal(z_mean, z_mean + 1).to(device)
@@ -359,18 +360,18 @@ def train(path_to_zip: str,
                 attrs = torch.concat([demo_batch[k] for k in attr_cols], dim=1)
                 c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
                 x = (images - spect_mean) / spect_std
-                x = torch.clip(x, -3, 3) / 3.0
+                x = torch.clip(x, -stds_kept, stds_kept) / float(stds_kept)
 
                 z_mean = torch.zeros((len(x), 512, 1, 1)).float()
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
                 gener = G(z, c).reshape(n_show, *image_shape)
-                gener = (gener * 3 * spect_std + spect_mean).cpu().numpy()
+                gener = (gener * stds_kept * spect_std + spect_mean).cpu().numpy()
                 recon = G(E(x, c), c).reshape(n_show, *image_shape)
-                recon = (recon * 3 * spect_std + spect_mean).cpu().numpy()
+                recon = (recon * stds_kept * spect_std + spect_mean).cpu().numpy()
                 real = x.reshape((n_show, *image_shape))
-                real = (real * 3 * spect_std + spect_mean).cpu().numpy()
+                real = (real * stds_kept * spect_std + spect_mean).cpu().numpy()
                 vmin, vmax = real.min(), real.max()
 
             if save_images_every is not None:
