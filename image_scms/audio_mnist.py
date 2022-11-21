@@ -29,10 +29,17 @@ class AudioMNISTData:
         self.transforms = {k: lambda x: x for k in self.data}
         self.inv_transforms = {k: lambda x: x for k in self.data}
 
-        self.audio_to_spectrogram = torchaudio.transforms.Spectrogram(n_fft=258,
-                                                                      hop_length=62).to(device)
-        self.spectrogram_to_audio = torchaudio.transforms.GriffinLim(n_fft=258,
-                                                                     hop_length=62).to(device)
+        self.audio_to_spectrogram = torchaudio.transforms.MelSpectrogram(
+            sample_rate=8000,
+            hop_length=64,
+            pad=64
+        )
+        inv_mel = torchaudio.transforms.InverseMelScale(
+            201, sample_rate=8000
+        )
+        gl = torchaudio.transforms.GriffinLim(hop_length=64)
+        self.spectrogram_to_audio = lambda x: gl(inv_mel(x))[:, 64:-64]
+
         self.device = device
 
         with ZipFile(self.path_to_zip, "r") as zf:
@@ -170,23 +177,25 @@ class Generator(nn.Module):
             nn.ConvTranspose2d(512 + 46, 256, (5, 5), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(256),
-            nn.ConvTranspose2d(256, 128, (4, 4), (1, 1)),
+            nn.ConvTranspose2d(256, 128, (4, 4), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(128),
-            nn.ConvTranspose2d(128, 64, (3, 3), (2, 2)),
+            nn.ConvTranspose2d(128, 64, (3, 3), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(64),
             nn.ConvTranspose2d(64, 64, (3, 3), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(64),
-            nn.ConvTranspose2d(64, 32, (3, 3), (2, 2)),
+            nn.ConvTranspose2d(64, 32, (3, 3), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
-            nn.ConvTranspose2d(32, 32, (2, 2), (2, 2)),
+            nn.ConvTranspose2d(32, 32, (3, 3), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
-            nn.ConvTranspose2d(32, 1, (1, 1), (1, 1)),
-            LambdaLayer(lambda x: x[:, :, :130, :130]),
+            nn.ConvTranspose2d(32, 16, (3, 3), (2, 2)),
+            nn.LeakyReLU(0.1),
+            nn.BatchNorm2d(16),
+            nn.ConvTranspose2d(16, 1, (2, 2), (1, 1)),
             nn.Tanh()
         )
 

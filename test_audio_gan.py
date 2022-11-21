@@ -1,7 +1,7 @@
 from image_scms.audio_mnist import *
 
 if __name__ == "__main__":
-    spec = torch.zeros((10, 1, 130, 130))
+    spec = torch.zeros((10, 1, 128, 128))
     attrs = torch.zeros((10, 46))
     enc = Encoder()
     dec = Generator()
