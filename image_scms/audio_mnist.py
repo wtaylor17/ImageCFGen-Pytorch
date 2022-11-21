@@ -293,7 +293,7 @@ def train(path_to_zip: str,
     spect_mean, spect_ss, n_batches = 0, 0, 0
 
     print('Computing spectrogram statistics...')
-    image_shape = (130, 130)
+    image_shape = (128, 128)
     for batch in data.stream(batch_size=batch_size):
         n_batches += 1
         spect_mean = spect_mean + batch["audio"].mean(dim=(0, 2), keepdim=True)
@@ -384,11 +384,11 @@ def train(path_to_zip: str,
                     fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
 
                     for i in range(n_show):
-                        ax[0, i].imshow(gener[i].T, vmin=vmin, vmax=vmax)
+                        ax[0, i].imshow(gener[i], vmin=vmin, vmax=vmax)
                         ax[0, i].axis('off')
-                        ax[1, i].imshow(real[i].T, vmin=vmin, vmax=vmax)
+                        ax[1, i].imshow(real[i], vmin=vmin, vmax=vmax)
                         ax[1, i].axis('off')
-                        ax[2, i].imshow(recon[i].T, vmin=vmin, vmax=vmax)
+                        ax[2, i].imshow(recon[i], vmin=vmin, vmax=vmax)
                         ax[2, i].axis('off')
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()
