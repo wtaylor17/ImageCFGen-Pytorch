@@ -8,7 +8,7 @@ from sklearn.preprocessing import OneHotEncoder, KBinsDiscretizer
 from tqdm import tqdm
 import torchaudio
 import librosa
-from scipy.io.wavfile import read as read_wav
+from scipy.io.wavfile import read as read_wav, write as write_wav
 from functools import partial
 
 from .training_utils import attributes_image, init_weights, AdversariallyLearnedInference
@@ -90,7 +90,8 @@ class AudioMNISTData:
                         self.data["gender"].append(gender)
 
             self.data["audio"] = np.stack(self.data["audio"], axis=0)
-            self.transforms["audio"] = lambda x: torch.transpose(self.audio_to_spectrogram(torch.from_numpy(x).float().to(self.device)),
+            self.transforms["audio"] = lambda x: torch.transpose(self.audio_to_spectrogram(torch.from_numpy(x).float()
+                                                                                           .to(self.device)),
                                                                  dim0=1, dim1=2)
             self.inv_transforms["audio"] = lambda x: self.spectrogram_to_audio(
                 torch.from_numpy(np.transpose(x, axes=(0, 2, 1))).float().to(self.device)
@@ -392,6 +393,15 @@ def train(path_to_zip: str,
                         ax[2, i].axis('off')
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()
-                    print('Images saved to', image_output_path)
+
+                    gener_wav = data.inv_transforms["audio"](gener[0:1]).cpu().numpy()[0]
+                    rec_wav = data.inv_transforms["audio"](recon[0:1]).cpu().numpy()[0]
+                    real_wav = data.inv_transforms["audio"](real[0:1]).cpu().numpy()[0]
+
+                    write_wav(f"{image_output_path}/epoch-{epoch + 1}-generated.wav", 8000, gener_wav)
+                    write_wav(f"{image_output_path}/epoch-{epoch + 1}-real.wav", 8000, real_wav)
+                    write_wav(f"{image_output_path}/epoch-{epoch + 1}-reconstructed.wav", 8000, rec_wav)
+
+                    print('Image and audio saved to', image_output_path)
 
     return E, G, D, optimizer_D, optimizer_E
