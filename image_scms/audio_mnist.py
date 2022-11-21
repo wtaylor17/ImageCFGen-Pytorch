@@ -90,11 +90,11 @@ class AudioMNISTData:
                         self.data["gender"].append(gender)
 
             self.data["audio"] = np.stack(self.data["audio"], axis=0)
-            self.transforms["audio"] = lambda x: torch.transpose(self.audio_to_spectrogram(torch.from_numpy(x).float()
+            self.transforms["audio"] = lambda x: (torch.transpose(self.audio_to_spectrogram(torch.from_numpy(x).float()
                                                                                            .to(self.device)),
-                                                                 dim0=1, dim1=2)
+                                                                  dim0=1, dim1=2) + 1e-6).log()
             self.inv_transforms["audio"] = lambda x: self.spectrogram_to_audio(
-                torch.from_numpy(np.transpose(x, axes=(0, 2, 1))).float().to(self.device)
+                torch.from_numpy(np.transpose(x, axes=(0, 2, 1))).float().to(self.device).exp()
             )
 
             for k in self.data:
