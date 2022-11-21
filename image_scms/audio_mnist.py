@@ -304,7 +304,7 @@ def train(path_to_zip: str,
     spect_mean = (spect_mean / n_batches).float().to(device)
     spect_ss = (spect_ss / n_batches).float().to(device)
 
-    spect_std = spect_ss - spect_mean
+    spect_std = torch.sqrt(spect_ss - spect_mean)
 
     attr_cols = [k for k in data.data if k != "audio"]
     print('Beginning training')
