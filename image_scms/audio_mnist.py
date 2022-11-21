@@ -272,7 +272,7 @@ def train(path_to_zip: str,
           save_images_every=2,
           batch_size=128,
           image_output_path=''):
-    stds_kept = 3
+    stds_kept = 6
     E = Encoder().to(device)
     G = Generator().to(device)
     D = Discriminator().to(device)
