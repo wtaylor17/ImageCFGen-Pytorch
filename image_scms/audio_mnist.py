@@ -272,7 +272,7 @@ def train(path_to_zip: str,
           save_images_every=2,
           batch_size=128,
           image_output_path=''):
-    stds_kept = 5
+    stds_kept = 3
     E = Encoder().to(device)
     G = Generator().to(device)
     D = Discriminator().to(device)
@@ -298,8 +298,8 @@ def train(path_to_zip: str,
     image_shape = (128, 128)
     for batch in data.stream(batch_size=batch_size):
         n_batches += 1
-        spect_mean = spect_mean + batch["audio"].mean(dim=(0, 2), keepdim=True)
-        spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 2), keepdim=True)
+        spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1), keepdim=True)
+        spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1), keepdim=True)
         image_shape = batch["audio"].shape[1:]
     print('Done')
 
