@@ -373,35 +373,35 @@ def train(path_to_zip: str,
                 real = (real * 3 * spect_std + spect_mean).cpu().numpy()
                 vmin, vmax = real.min(), real.max()
 
-                if save_images_every is not None:
-                    import matplotlib.pyplot as plt
+            if save_images_every is not None:
+                import matplotlib.pyplot as plt
 
-                    fig, ax = plt.subplots(3, n_show, figsize=(15, 5))
-                    fig.subplots_adjust(wspace=0.05, hspace=0)
-                    plt.rcParams.update({'font.size': 20})
-                    fig.suptitle('Epoch {}'.format(epoch + 1))
-                    fig.text(0.01, 0.75, 'G(z, c)', ha='left')
-                    fig.text(0.01, 0.5, 'x', ha='left')
-                    fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
+                fig, ax = plt.subplots(3, n_show, figsize=(15, 5))
+                fig.subplots_adjust(wspace=0.05, hspace=0)
+                plt.rcParams.update({'font.size': 20})
+                fig.suptitle('Epoch {}'.format(epoch + 1))
+                fig.text(0.01, 0.75, 'G(z, c)', ha='left')
+                fig.text(0.01, 0.5, 'x', ha='left')
+                fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
 
-                    for i in range(n_show):
-                        ax[0, i].imshow(gener[i], vmin=vmin, vmax=vmax)
-                        ax[0, i].axis('off')
-                        ax[1, i].imshow(real[i], vmin=vmin, vmax=vmax)
-                        ax[1, i].axis('off')
-                        ax[2, i].imshow(recon[i], vmin=vmin, vmax=vmax)
-                        ax[2, i].axis('off')
-                    plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
-                    plt.close()
+                for i in range(n_show):
+                    ax[0, i].imshow(gener[i], vmin=vmin, vmax=vmax)
+                    ax[0, i].axis('off')
+                    ax[1, i].imshow(real[i], vmin=vmin, vmax=vmax)
+                    ax[1, i].axis('off')
+                    ax[2, i].imshow(recon[i], vmin=vmin, vmax=vmax)
+                    ax[2, i].axis('off')
+                plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
+                plt.close()
 
-                    gener_wav = data.inv_transforms["audio"](gener[0:1]).cpu().numpy()[0]
-                    rec_wav = data.inv_transforms["audio"](recon[0:1]).cpu().numpy()[0]
-                    real_wav = data.inv_transforms["audio"](real[0:1]).cpu().numpy()[0]
+                gener_wav = data.inv_transforms["audio"](gener[0:1]).cpu().numpy()[0]
+                rec_wav = data.inv_transforms["audio"](recon[0:1]).cpu().numpy()[0]
+                real_wav = data.inv_transforms["audio"](real[0:1]).cpu().numpy()[0]
 
-                    write_wav(f"{image_output_path}/epoch-{epoch + 1}-generated.wav", 8000, gener_wav)
-                    write_wav(f"{image_output_path}/epoch-{epoch + 1}-real.wav", 8000, real_wav)
-                    write_wav(f"{image_output_path}/epoch-{epoch + 1}-reconstructed.wav", 8000, rec_wav)
+                write_wav(f"{image_output_path}/epoch-{epoch + 1}-generated.wav", 8000, gener_wav)
+                write_wav(f"{image_output_path}/epoch-{epoch + 1}-real.wav", 8000, real_wav)
+                write_wav(f"{image_output_path}/epoch-{epoch + 1}-reconstructed.wav", 8000, rec_wav)
 
-                    print('Image and audio saved to', image_output_path)
+                print('Image and audio saved to', image_output_path)
 
     return E, G, D, optimizer_D, optimizer_E
