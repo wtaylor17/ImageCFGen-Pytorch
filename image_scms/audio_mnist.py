@@ -91,7 +91,7 @@ class AudioMNISTData:
 
             self.data["audio"] = np.stack(self.data["audio"], axis=0)
             self.transforms["audio"] = lambda x: (torch.transpose(self.audio_to_spectrogram(torch.from_numpy(x).float()
-                                                                                           .to(self.device)),
+                                                                                                 .to(self.device)),
                                                                   dim0=1, dim1=2) + 1e-6).log()
             self.inv_transforms["audio"] = lambda x: self.spectrogram_to_audio(
                 torch.from_numpy(np.transpose(x, axes=(0, 2, 1))).float().to(self.device).exp()
@@ -399,9 +399,12 @@ def train(path_to_zip: str,
                 rec_wav = data.inv_transforms["audio"](recon[0:1]).cpu().numpy()[0]
                 real_wav = data.inv_transforms["audio"](real[0:1]).cpu().numpy()[0]
 
-                write_wav(f"{image_output_path}/epoch-{epoch + 1}-generated.wav", 8000, gener_wav)
-                write_wav(f"{image_output_path}/epoch-{epoch + 1}-real.wav", 8000, real_wav)
-                write_wav(f"{image_output_path}/epoch-{epoch + 1}-reconstructed.wav", 8000, rec_wav)
+                write_wav(f"{image_output_path}/epoch-{epoch + 1}-generated.wav", 8000,
+                          np.int16(gener_wav / np.max(np.abs(gener_wav)) * 32767))
+                write_wav(f"{image_output_path}/epoch-{epoch + 1}-real.wav", 8000,
+                          np.int16(real_wav / np.max(np.abs(real_wav)) * 32767))
+                write_wav(f"{image_output_path}/epoch-{epoch + 1}-reconstructed.wav", 8000,
+                          np.int16(rec_wav / np.max(np.abs(rec_wav)) * 32767))
 
                 print('Image and audio saved to', image_output_path)
 
