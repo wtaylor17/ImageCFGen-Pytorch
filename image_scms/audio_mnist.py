@@ -11,12 +11,13 @@ import librosa
 from scipy.io.wavfile import read as read_wav
 from functools import partial
 
-from .training_utils import attributes_image, LambdaLayer, init_weights, AdversariallyLearnedInference
+from .training_utils import attributes_image, init_weights, AdversariallyLearnedInference
 
 
 class AudioMNISTData:
     def __init__(self, path_to_zip: str, device="cpu"):
         self.path_to_zip = path_to_zip
+        self.device = device
         self.data = {
             "audio": [],
             "country_of_origin": [],
@@ -33,14 +34,12 @@ class AudioMNISTData:
             sample_rate=8000,
             hop_length=64,
             pad=64
-        )
+        ).to(self.device)
         inv_mel = torchaudio.transforms.InverseMelScale(
             201, sample_rate=8000
-        )
-        gl = torchaudio.transforms.GriffinLim(hop_length=64)
+        ).to(self.device)
+        gl = torchaudio.transforms.GriffinLim(hop_length=64).to(self.device)
         self.spectrogram_to_audio = lambda x: gl(inv_mel(x))[:, 64:-64]
-
-        self.device = device
 
         with ZipFile(self.path_to_zip, "r") as zf:
             json_str = zf.read("data/audioMNIST_meta.txt").decode("utf-8")
@@ -91,8 +90,11 @@ class AudioMNISTData:
                         self.data["gender"].append(gender)
 
             self.data["audio"] = np.stack(self.data["audio"], axis=0)
-            self.transforms["audio"] = lambda x: self.audio_to_spectrogram(torch.from_numpy(x).to(self.device))
-            self.inv_transforms["audio"] = lambda x: self.spectrogram_to_audio(torch.from_numpy(x).to(self.device))
+            self.transforms["audio"] = lambda x: torch.transpose(self.audio_to_spectrogram(torch.from_numpy(x).float().to(self.device)),
+                                                                 dim0=1, dim1=2)
+            self.inv_transforms["audio"] = lambda x: self.spectrogram_to_audio(
+                torch.from_numpy(np.transpose(x, axes=(0, 2, 1))).float().to(self.device)
+            )
 
             for k in self.data:
                 self.data[k] = np.asarray(self.data[k])
