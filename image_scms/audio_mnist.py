@@ -32,14 +32,15 @@ class AudioMNISTData:
 
         self.audio_to_spectrogram = torchaudio.transforms.MelSpectrogram(
             sample_rate=8000,
-            hop_length=64,
+            hop_length=128,
+            n_mels=64,
             pad=64
         ).to(self.device)
         inv_mel = torchaudio.transforms.InverseMelScale(
-            201, sample_rate=8000
+            201, sample_rate=8000, n_mels=64
         ).to(self.device)
-        gl = torchaudio.transforms.GriffinLim(hop_length=64).to(self.device)
-        self.spectrogram_to_audio = lambda x: gl(inv_mel(x))[:, 64:-64]
+        gl = torchaudio.transforms.GriffinLim(hop_length=128).to(self.device)
+        self.spectrogram_to_audio = lambda x: gl(inv_mel(x))[:, 32:-32]
 
         with ZipFile(self.path_to_zip, "r") as zf:
             json_str = zf.read("data/audioMNIST_meta.txt").decode("utf-8")
