@@ -145,7 +145,7 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         self.layers = nn.Sequential(
             nn.BatchNorm2d(2),
-            nn.Conv2d(2, 16, (5, 5), (2, 2)),
+            nn.Conv2d(2, 16, (5, 5), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(16),
             nn.Conv2d(16, 32, (4, 4), (2, 2)),
@@ -154,12 +154,12 @@ class Encoder(nn.Module):
             nn.Conv2d(32, 64, (4, 4), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(64),
-            nn.Conv2d(64, 128, (4, 4), (2, 2)),
+            nn.Conv2d(64, 128, (3, 3), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(128),
-            nn.Conv2d(128, 256, (4, 4), (2, 2)),
+            nn.Conv2d(128, 256, (3, 3), (1, 1)),
             nn.LeakyReLU(0.1),
-            nn.Conv2d(256, 512, (2, 2), (1, 1)),
+            nn.Conv2d(256, 512, (3, 3), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(512),
             nn.Conv2d(512, 512, (1, 1), (1, 1))
@@ -196,10 +196,10 @@ class Generator(nn.Module):
             nn.ConvTranspose2d(32, 32, (3, 3), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
-            nn.ConvTranspose2d(32, 16, (3, 3), (2, 2)),
+            nn.ConvTranspose2d(32, 16, (2, 2), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(16),
-            nn.ConvTranspose2d(16, 1, (2, 2), (1, 1)),
+            nn.ConvTranspose2d(16, 1, (1, 1), (1, 1)),
             nn.Tanh()
         )
 
@@ -223,12 +223,12 @@ class Discriminator(nn.Module):
             nn.Dropout2d(0.2),
             nn.Conv2d(2, 16, (5, 5), (1, 1)),
             nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(16),
             nn.Dropout2d(0.2),
+            nn.BatchNorm2d(16),
             nn.Conv2d(16, 32, (5, 5), (2, 2)),
             nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(32),
             nn.Dropout2d(0.2),
+            nn.BatchNorm2d(32),
             nn.Conv2d(32, 64, (4, 4), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(64),
@@ -237,11 +237,11 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(128),
             nn.Dropout2d(0.5),
-            nn.Conv2d(128, 256, (4, 4), (2, 2)),
+            nn.Conv2d(128, 256, (3, 3), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(256),
             nn.Dropout2d(0.5),
-            nn.Conv2d(256, 512, (4, 4), (2, 2)),
+            nn.Conv2d(256, 512, (2, 2), (1, 1)),
             nn.LeakyReLU(0.1)
         )
         self.dxz = nn.Sequential(
@@ -296,7 +296,7 @@ def train(path_to_zip: str,
     spect_mean, spect_ss, n_batches = 0, 0, 0
 
     print('Computing spectrogram statistics...')
-    image_shape = (128, 128)
+    image_shape = (64, 64)
     for batch in data.stream(batch_size=batch_size):
         n_batches += 1
         spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1), keepdim=True)
