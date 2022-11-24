@@ -391,9 +391,9 @@ def train(path_to_zip: str,
                 z = z.to(device)
 
                 gener = G(z, c).reshape(n_show, *IMAGE_SHAPE)
-                gener = (gener * stds_kept * spect_std + spect_mean).cpu().numpy()
+                gener = ((gener * 2 * stds_kept - stds_kept) * spect_std + spect_mean).cpu().numpy()
                 recon = G(E(x, c), c).reshape(n_show, *IMAGE_SHAPE)
-                recon = (recon * stds_kept * spect_std + spect_mean).cpu().numpy()
+                recon = ((recon * 2 * stds_kept - stds_kept) * spect_std + spect_mean).cpu().numpy()
                 real = x.reshape((n_show, *IMAGE_SHAPE))
                 real = ((real * 2 * stds_kept - stds_kept) * spect_std + spect_mean).cpu().numpy()
                 vmin, vmax = real.min(), real.max()
