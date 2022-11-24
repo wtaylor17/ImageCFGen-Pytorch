@@ -197,7 +197,7 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.layers = nn.Sequential(
             nn.BatchNorm2d(LATENT_DIM + 47),
-            nn.ConvTranspose2d(LATENT_DIM + 46, 256, (5, 5), (1, 1)),
+            nn.ConvTranspose2d(LATENT_DIM + 47, 256, (5, 5), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(256),
             nn.ConvTranspose2d(256, 256, (5, 5), (2, 2)),
