@@ -251,7 +251,7 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.1)
         )
         self.dx = nn.Sequential(
-            nn.Conv2d(47, 32, (5, 5), (2, 2)),
+            nn.Conv2d(48, 32, (5, 5), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
             nn.Conv2d(32, 64, (5, 5), (2, 2)),
