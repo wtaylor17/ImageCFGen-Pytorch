@@ -146,8 +146,8 @@ class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(47),
-            nn.Conv2d(47, 16, (5, 5), (1, 1)),
+            nn.BatchNorm2d(48),
+            nn.Conv2d(48, 16, (5, 5), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(16),
             nn.Conv2d(16, 32, (4, 4), (2, 2)),
@@ -196,7 +196,7 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(LATENT_DIM + 46),
+            nn.BatchNorm2d(LATENT_DIM + 47),
             nn.ConvTranspose2d(LATENT_DIM + 46, 256, (5, 5), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(256),
