@@ -49,7 +49,7 @@ class AudioMNISTData:
                 subject_meta = meta_data[subject_name]
 
                 for dig in range(1, 10):
-                    for run in range(0, 1):
+                    for run in range(0, 50):
                         wav_path = f"data/{subject_name}/{dig}_{subject_name}_{run}.wav"
                         sr, wav_arr = read_wav(BytesIO(zf.read(wav_path)))
                         wav_arr = librosa.core.resample(y=wav_arr.astype(np.float32),
@@ -318,7 +318,6 @@ def train(path_to_zip: str,
         n_batches += 1
         spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1), keepdim=True)
         spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1), keepdim=True)
-        image_shape = batch["audio"].shape[1:]
     print('Done')
 
     spect_mean = (spect_mean / n_batches).float().to(device)
