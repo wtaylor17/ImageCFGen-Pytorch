@@ -380,7 +380,7 @@ def train(path_to_zip: str,
                 # generate images from same class as real ones
                 demo_batch = next(data.stream(batch_size=n_show))
                 images = demo_batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
-                attrs = torch.concat([demo_batch[k] for k in attr_cols], dim=1)
+                attrs = [demo_batch[k] for k in attr_cols]
                 c = [torch.clone(attr).float().to(device)
                      for attr in attrs]
                 x = (images - spect_mean) / spect_std
