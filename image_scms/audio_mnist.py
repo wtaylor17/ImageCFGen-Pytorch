@@ -11,7 +11,10 @@ import librosa
 from scipy.io.wavfile import read as read_wav, write as write_wav
 from functools import partial
 
-from .training_utils import attributes_image, init_weights, AdversariallyLearnedInference
+from .training_utils import (attributes_image,
+                             init_weights,
+                             AdversariallyLearnedInference,
+                             binarized_attribute_channel)
 
 
 LATENT_DIM = 1024
@@ -143,8 +146,8 @@ class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(2),
-            nn.Conv2d(2, 16, (5, 5), (1, 1)),
+            nn.BatchNorm2d(47),
+            nn.Conv2d(47, 16, (5, 5), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(16),
             nn.Conv2d(16, 32, (4, 4), (2, 2)),
@@ -182,7 +185,11 @@ class Encoder(nn.Module):
         return next(self.parameters()).device
 
     def forward(self, X, a):
-        return self.layers(attributes_image(X, a, device=self.device))
+        inp = torch.concat([X] + [
+            binarized_attribute_channel(X, ai, device=self.device)
+            for ai in a
+        ], dim=1)
+        return self.layers(inp)
 
 
 class Generator(nn.Module):
@@ -221,9 +228,15 @@ class Generator(nn.Module):
             nn.Tanh()
         )
 
+    @property
+    def device(self):
+        return next(self.parameters()).device
+
     def forward(self, z, a):
-        a = a.reshape((-1, 46, 1, 1))
-        return self.layers(torch.concat([z, a], dim=1))
+        return self.layers(torch.concat([z] + [
+            binarized_attribute_channel(z, ai, device=self.device)
+            for ai in a
+        ], dim=1))
 
 
 class Discriminator(nn.Module):
@@ -238,38 +251,26 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.1)
         )
         self.dx = nn.Sequential(
-            nn.Dropout2d(0.2),
-            nn.Conv2d(2, 16, (5, 5), (1, 1)),
+            nn.Conv2d(47, 32, (5, 5), (2, 2)),
             nn.LeakyReLU(0.1),
-            nn.Dropout2d(0.2),
-            nn.BatchNorm2d(16),
-            nn.Conv2d(16, 32, (5, 5), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.Dropout2d(0.2),
             nn.BatchNorm2d(32),
-            nn.Conv2d(32, 64, (4, 4), (2, 2)),
+            nn.Conv2d(32, 64, (5, 5), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(64),
-            nn.Dropout2d(0.5),
             nn.Conv2d(64, 128, (4, 4), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(128),
-            nn.Dropout2d(0.5),
             nn.Conv2d(128, 256, (4, 4), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(256),
-            nn.Dropout2d(0.5),
             nn.Conv2d(256, LATENT_DIM, (4, 4), (2, 2)),
             nn.LeakyReLU(0.1)
         )
         self.dxz = nn.Sequential(
-            nn.Dropout2d(0.2),
             nn.Conv2d(2 * LATENT_DIM, 1024, (1, 1), (1, 1)),
             nn.LeakyReLU(0.1),
-            nn.Dropout2d(0.2),
             nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
             nn.LeakyReLU(0.1),
-            nn.Dropout2d(0.2),
             nn.Conv2d(1024, 1, (1, 1), (1, 1)),
             nn.Sigmoid()
         )
@@ -279,7 +280,11 @@ class Discriminator(nn.Module):
         return next(self.parameters()).device
 
     def forward(self, X, z, a):
-        dx = self.dx(attributes_image(X, a, device=self.device))
+        inp = torch.concat([X] + [
+            binarized_attribute_channel(X, ai, device=self.device)
+            for ai in a
+        ], dim=1)
+        dx = self.dx(inp)
         dz = self.dz(z)
         return self.dxz(torch.concat([dx, dz], dim=1)).reshape((-1, 1))
 
@@ -335,10 +340,11 @@ def train(path_to_zip: str,
         G.train()
         for i, batch in enumerate(tqdm(data.stream(batch_size=batch_size), total=n_batches)):
             images = batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
-            attrs = torch.concat([batch[k] for k in attr_cols], dim=1)
-            c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
+            attrs = [batch[k] for k in attr_cols]
+            c = [torch.clone(attr).float().to(device)
+                 for attr in attrs]
             images = (images - spect_mean) / spect_std
-            images = torch.clip(images, -stds_kept, stds_kept) / float(stds_kept)
+            images = (torch.clip(images, -stds_kept, stds_kept) + stds_kept) / float(2*stds_kept)
 
             z_mean = torch.zeros((len(images), LATENT_DIM, 1, 1)).float()
             z = torch.normal(z_mean, z_mean + 1).to(device)
@@ -375,9 +381,10 @@ def train(path_to_zip: str,
                 demo_batch = next(data.stream(batch_size=n_show))
                 images = demo_batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
                 attrs = torch.concat([demo_batch[k] for k in attr_cols], dim=1)
-                c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
+                c = [torch.clone(attr).float().to(device)
+                     for attr in attrs]
                 x = (images - spect_mean) / spect_std
-                x = torch.clip(x, -stds_kept, stds_kept) / float(stds_kept)
+                x = (torch.clip(x, -stds_kept, stds_kept) + stds_kept) / float(2*stds_kept)
 
                 z_mean = torch.zeros((len(x), LATENT_DIM, 1, 1)).float()
                 z = torch.normal(z_mean, z_mean + 1)
@@ -388,7 +395,7 @@ def train(path_to_zip: str,
                 recon = G(E(x, c), c).reshape(n_show, *IMAGE_SHAPE)
                 recon = (recon * stds_kept * spect_std + spect_mean).cpu().numpy()
                 real = x.reshape((n_show, *IMAGE_SHAPE))
-                real = (real * stds_kept * spect_std + spect_mean).cpu().numpy()
+                real = ((real * 2 * stds_kept - stds_kept) * spect_std + spect_mean).cpu().numpy()
                 vmin, vmax = real.min(), real.max()
 
             if save_images_every is not None:
