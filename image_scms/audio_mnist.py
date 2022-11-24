@@ -51,7 +51,7 @@ class AudioMNISTData:
                 subject_name = f"0{subject_num}"[-2:]
                 subject_meta = meta_data[subject_name]
 
-                for dig in range(1, 10):
+                for dig in range(0, 10):
                     for run in range(0, 50):
                         wav_path = f"data/{subject_name}/{dig}_{subject_name}_{run}.wav"
                         sr, wav_arr = read_wav(BytesIO(zf.read(wav_path)))
