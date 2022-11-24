@@ -14,6 +14,9 @@ from functools import partial
 from .training_utils import attributes_image, init_weights, AdversariallyLearnedInference
 
 
+LATENT_DIM = 1024
+
+
 class AudioMNISTData:
     def __init__(self, path_to_zip: str, device="cpu"):
         self.path_to_zip = path_to_zip
@@ -148,21 +151,34 @@ class Encoder(nn.Module):
             nn.Conv2d(2, 16, (5, 5), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(16),
-            nn.Conv2d(16, 32, (4, 4), (2, 2)),
+            nn.Conv2d(16, 32, (4, 4), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
-            nn.Conv2d(32, 64, (4, 4), (2, 2)),
+            nn.Conv2d(32, 32, (4, 4), (2, 2)),
+            nn.LeakyReLU(0.1),
+            nn.BatchNorm2d(32),
+            nn.Conv2d(32, 64, (4, 4), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(64),
-            nn.Conv2d(64, 128, (3, 3), (2, 2)),
+            nn.Conv2d(64, 64, (4, 4), (2, 2)),
+            nn.LeakyReLU(0.1),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64, 128, (3, 3), (1, 1)),
+            nn.LeakyReLU(0.1),
+            nn.BatchNorm2d(128),
+            nn.Conv2d(128, 128, (3, 3), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(128),
             nn.Conv2d(128, 256, (3, 3), (1, 1)),
             nn.LeakyReLU(0.1),
-            nn.Conv2d(256, 512, (3, 3), (2, 2)),
+            nn.BatchNorm2d(256),
+            nn.Conv2d(256, 256, (3, 3), (1, 1)),
+            nn.LeakyReLU(0.1),
+            nn.BatchNorm2d(256),
+            nn.Conv2d(256, 512, (3, 3), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(512),
-            nn.Conv2d(512, 512, (1, 1), (1, 1))
+            nn.Conv2d(512, LATENT_DIM, (1, 1), (1, 1))
         )
 
     @property
@@ -177,14 +193,20 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(512 + 46),
-            nn.ConvTranspose2d(512 + 46, 256, (5, 5), (1, 1)),
+            nn.BatchNorm2d(LATENT_DIM + 46),
+            nn.ConvTranspose2d(LATENT_DIM + 46, 256, (5, 5), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(256),
-            nn.ConvTranspose2d(256, 128, (4, 4), (2, 2)),
+            nn.ConvTranspose2d(256, 256, (5, 5), (1, 1)),
+            nn.LeakyReLU(0.1),
+            nn.BatchNorm2d(256),
+            nn.ConvTranspose2d(256, 128, (4, 4), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(128),
-            nn.ConvTranspose2d(128, 64, (3, 3), (1, 1)),
+            nn.ConvTranspose2d(128, 128, (4, 4), (2, 2)),
+            nn.LeakyReLU(0.1),
+            nn.BatchNorm2d(128),
+            nn.ConvTranspose2d(128, 64, (4, 4), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(64),
             nn.ConvTranspose2d(64, 64, (3, 3), (2, 2)),
@@ -193,7 +215,7 @@ class Generator(nn.Module):
             nn.ConvTranspose2d(64, 32, (3, 3), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
-            nn.ConvTranspose2d(32, 32, (3, 3), (2, 2)),
+            nn.ConvTranspose2d(32, 32, (3, 3), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(32),
             nn.ConvTranspose2d(32, 16, (2, 2), (1, 1)),
@@ -213,10 +235,10 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.dz = nn.Sequential(
             nn.Dropout2d(0.2),
-            nn.Conv2d(512, 512, (1, 1), (1, 1)),
+            nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.Dropout2d(0.5),
-            nn.Conv2d(512, 512, (1, 1), (1, 1)),
+            nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.1)
         )
         self.dx = nn.Sequential(
@@ -241,12 +263,12 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(256),
             nn.Dropout2d(0.5),
-            nn.Conv2d(256, 512, (2, 2), (1, 1)),
+            nn.Conv2d(256, LATENT_DIM, (2, 2), (1, 1)),
             nn.LeakyReLU(0.1)
         )
         self.dxz = nn.Sequential(
             nn.Dropout2d(0.2),
-            nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
+            nn.Conv2d(2 * LATENT_DIM, 1024, (1, 1), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.Dropout2d(0.2),
             nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
@@ -324,7 +346,7 @@ def train(path_to_zip: str,
             images = (images - spect_mean) / spect_std
             images = torch.clip(images, -stds_kept, stds_kept) / float(stds_kept)
 
-            z_mean = torch.zeros((len(images), 512, 1, 1)).float()
+            z_mean = torch.zeros((len(images), LATENT_DIM, 1, 1)).float()
             z = torch.normal(z_mean, z_mean + 1).to(device)
 
             # Discriminator training
@@ -363,7 +385,7 @@ def train(path_to_zip: str,
                 x = (images - spect_mean) / spect_std
                 x = torch.clip(x, -stds_kept, stds_kept) / float(stds_kept)
 
-                z_mean = torch.zeros((len(x), 512, 1, 1)).float()
+                z_mean = torch.zeros((len(x), LATENT_DIM, 1, 1)).float()
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
