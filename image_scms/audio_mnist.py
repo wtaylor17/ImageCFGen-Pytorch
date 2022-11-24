@@ -15,6 +15,7 @@ from .training_utils import attributes_image, init_weights, AdversariallyLearned
 
 
 LATENT_DIM = 1024
+IMAGE_SHAPE = (128, 128)
 
 
 class AudioMNISTData:
@@ -33,17 +34,12 @@ class AudioMNISTData:
         self.transforms = {k: lambda x: x for k in self.data}
         self.inv_transforms = {k: lambda x: x for k in self.data}
 
-        self.audio_to_spectrogram = torchaudio.transforms.MelSpectrogram(
-            sample_rate=8000,
-            hop_length=128,
-            n_mels=64,
-            pad=64
+        self.audio_to_spectrogram = torchaudio.transforms.Spectrogram(
+            n_fft=255, win_length=255, hop_length=63, pad=32
         ).to(self.device)
-        inv_mel = torchaudio.transforms.InverseMelScale(
-            201, sample_rate=8000, n_mels=64
+        self.spectrogram_to_audio = torchaudio.transforms.GriffinLim(
+            n_fft=255, win_length=255, hop_length=63
         ).to(self.device)
-        gl = torchaudio.transforms.GriffinLim(hop_length=128).to(self.device)
-        self.spectrogram_to_audio = lambda x: gl(inv_mel(x))[:, 32:-32]
 
         with ZipFile(self.path_to_zip, "r") as zf:
             json_str = zf.read("data/audioMNIST_meta.txt").decode("utf-8")
@@ -53,7 +49,7 @@ class AudioMNISTData:
                 subject_meta = meta_data[subject_name]
 
                 for dig in range(1, 10):
-                    for run in range(0, 50):
+                    for run in range(0, 1):
                         wav_path = f"data/{subject_name}/{dig}_{subject_name}_{run}.wav"
                         sr, wav_arr = read_wav(BytesIO(zf.read(wav_path)))
                         wav_arr = librosa.core.resample(y=wav_arr.astype(np.float32),
@@ -318,7 +314,6 @@ def train(path_to_zip: str,
     spect_mean, spect_ss, n_batches = 0, 0, 0
 
     print('Computing spectrogram statistics...')
-    image_shape = (64, 64)
     for batch in data.stream(batch_size=batch_size):
         n_batches += 1
         spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1), keepdim=True)
@@ -340,7 +335,7 @@ def train(path_to_zip: str,
         E.train()
         G.train()
         for i, batch in enumerate(tqdm(data.stream(batch_size=batch_size), total=n_batches)):
-            images = batch["audio"].reshape((-1, 1, *image_shape)).float().to(device)
+            images = batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
             attrs = torch.concat([batch[k] for k in attr_cols], dim=1)
             c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
             images = (images - spect_mean) / spect_std
@@ -379,7 +374,7 @@ def train(path_to_zip: str,
             with torch.no_grad():
                 # generate images from same class as real ones
                 demo_batch = next(data.stream(batch_size=n_show))
-                images = demo_batch["audio"].reshape((-1, 1, *image_shape)).float().to(device)
+                images = demo_batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
                 attrs = torch.concat([demo_batch[k] for k in attr_cols], dim=1)
                 c = torch.clone(attrs.reshape((-1, 46))).float().to(device)
                 x = (images - spect_mean) / spect_std
@@ -389,11 +384,11 @@ def train(path_to_zip: str,
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
-                gener = G(z, c).reshape(n_show, *image_shape)
+                gener = G(z, c).reshape(n_show, *IMAGE_SHAPE)
                 gener = (gener * stds_kept * spect_std + spect_mean).cpu().numpy()
-                recon = G(E(x, c), c).reshape(n_show, *image_shape)
+                recon = G(E(x, c), c).reshape(n_show, *IMAGE_SHAPE)
                 recon = (recon * stds_kept * spect_std + spect_mean).cpu().numpy()
-                real = x.reshape((n_show, *image_shape))
+                real = x.reshape((n_show, *IMAGE_SHAPE))
                 real = (real * stds_kept * spect_std + spect_mean).cpu().numpy()
                 vmin, vmax = real.min(), real.max()
 
