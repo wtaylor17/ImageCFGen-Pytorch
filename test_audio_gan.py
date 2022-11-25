@@ -1,8 +1,8 @@
 from image_scms.audio_mnist import *
 
 if __name__ == "__main__":
-    spec = torch.zeros((10, 1, 128, 128))
-    attrs = torch.zeros((10, 46))
+    spec = torch.zeros((10, 1, *IMAGE_SHAPE))
+    attrs = torch.zeros((10, 47))
     enc = Encoder()
     dec = Generator()
     disc = Discriminator()
