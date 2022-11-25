@@ -68,6 +68,7 @@ class AudioMNISTData:
                         elif len(wav_arr) < 8000:
                             embedded_data = np.zeros(8000)
                             embedded_data[:len(wav_arr)] = wav_arr
+                            embedded_data[len(wav_arr):] = np.random.normal(0, 0.01 * wav_arr.std(), size=(8000-len(wav_arr)))
                         elif len(wav_arr) == 8000:
                             # nothing to do here
                             embedded_data = wav_arr
