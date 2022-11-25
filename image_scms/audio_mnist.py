@@ -11,14 +11,13 @@ import librosa
 from scipy.io.wavfile import read as read_wav, write as write_wav
 from functools import partial
 
-from .training_utils import (attributes_image,
-                             init_weights,
+from .training_utils import (init_weights,
                              AdversariallyLearnedInference,
                              binarized_attribute_channel)
 
 
-LATENT_DIM = 1024
-IMAGE_SHAPE = (64, 64)
+LATENT_DIM = 128
+IMAGE_SHAPE = (128, 128)
 
 
 class AudioMNISTData:
@@ -37,16 +36,12 @@ class AudioMNISTData:
         self.transforms = {k: lambda x: x for k in self.data}
         self.inv_transforms = {k: lambda x: x for k in self.data}
 
-        self.audio_to_spectrogram = torchaudio.transforms.MelSpectrogram(
-            sample_rate=8000, n_mels=64, win_length=256, pad=64, n_fft=260
+        self.audio_to_spectrogram = torchaudio.transforms.Spectrogram(
+            n_fft=255, win_length=128, pad=96
         ).to(self.device)
-        im = torchaudio.transforms.InverseMelScale(
-            131, sample_rate=8000, n_mels=64, max_iter=10000
+        self.spectrogram_to_audio = torchaudio.transforms.GriffinLim(
+            n_fft=255, win_length=128
         ).to(self.device)
-        gl = torchaudio.transforms.GriffinLim(
-            win_length=256, n_fft=260
-        ).to(self.device)
-        self.spectrogram_to_audio = lambda x: gl(im(x))
 
         with ZipFile(self.path_to_zip, "r") as zf:
             json_str = zf.read("data/audioMNIST_meta.txt").decode("utf-8")
@@ -68,7 +63,6 @@ class AudioMNISTData:
                         elif len(wav_arr) < 8000:
                             embedded_data = np.zeros(8000)
                             embedded_data[:len(wav_arr)] = wav_arr
-                            embedded_data[len(wav_arr):] = np.random.normal(0, 0.01 * wav_arr.std(), size=(8000-len(wav_arr)))
                         elif len(wav_arr) == 8000:
                             # nothing to do here
                             embedded_data = wav_arr
@@ -143,31 +137,21 @@ class AudioMNISTData:
 
 
 class Encoder(nn.Module):
-    def __init__(self):
+    def __init__(self, d=8):
         super(Encoder, self).__init__()
         self.layers = nn.Sequential(
-            nn.Conv2d(48, 16, (5, 5), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(16, 32, (4, 4), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(32, 32, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(32, 64, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(64, 64, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(64, 128, (3, 3), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(128, 128, (3, 3), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(128, 256, (3, 3), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(256, 256, (3, 3), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(256, 512, (3, 3), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(512),
-            nn.Conv2d(512, LATENT_DIM, (1, 1), (1, 1))
+            nn.BatchNorm2d(48),
+            nn.Conv2d(48, d, (5, 5), (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(2 * d, 4 * d, (5, 5), (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(4 * d, 8 * d, (5, 5), (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(8 * d, 16 * d, (5, 5), (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(16 * d, LATENT_DIM, (1, 1), (1, 1))
         )
 
     @property
@@ -183,29 +167,28 @@ class Encoder(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self):
+    def __init__(self, d=8):
         super(Generator, self).__init__()
+        ct2d = partial(nn.ConvTranspose2d,
+                       stride=(2, 2),
+                       padding=(2, 2),
+                       output_padding=(1, 1))
         self.layers = nn.Sequential(
-            nn.ConvTranspose2d(LATENT_DIM + 47, 256, (5, 5), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.ConvTranspose2d(256, 256, (5, 5), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.ConvTranspose2d(256, 128, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.ConvTranspose2d(128, 128, (4, 4), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.ConvTranspose2d(128, 64, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.ConvTranspose2d(64, 64, (3, 3), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.ConvTranspose2d(64, 32, (3, 3), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.ConvTranspose2d(32, 32, (3, 3), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.ConvTranspose2d(32, 16, (2, 2), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.ConvTranspose2d(16, 1, (1, 1), (1, 1)),
-            nn.Sigmoid()
+            nn.BatchNorm2d(LATENT_DIM + 47),
+            nn.Flatten(),
+            nn.Linear(LATENT_DIM + 47, 256 * d),
+            nn.ReLU(),
+            nn.Unflatten(1, (16 * d, 4, 4)),
+            ct2d(16 * d, 8 * d, (5, 5)),
+            nn.ReLU(),
+            ct2d(8 * d, 4 * d, (5, 5)),
+            nn.ReLU(),
+            ct2d(4 * d, 2 * d, (5, 5)),
+            nn.ReLU(),
+            ct2d(2 * d, d, (5, 5)),
+            nn.ReLU(),
+            ct2d(d, 1, (5, 5)),
+            nn.Tanh()
         )
 
     @property
@@ -220,7 +203,7 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self):
+    def __init__(self, d=8):
         super(Discriminator, self).__init__()
         self.dz = nn.Sequential(
             nn.Dropout2d(0.2),
@@ -231,28 +214,18 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.1)
         )
         self.dx = nn.Sequential(
-            nn.Conv2d(48, 16, (5, 5), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(16, 32, (4, 4), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(32, 32, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(32, 64, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(64, 64, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(64, 128, (3, 3), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(128, 128, (3, 3), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(128, 256, (3, 3), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(256, 256, (3, 3), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(256, 512, (3, 3), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(512, LATENT_DIM, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.1)
+            nn.BatchNorm2d(48),
+            nn.Conv2d(48, d, (5, 5), (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(2 * d, 4 * d, (5, 5), (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(4 * d, 8 * d, (5, 5), (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(8 * d, 16 * d, (5, 5), (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(16 * d, LATENT_DIM, (1, 1), (1, 1))
         )
         self.dxz = nn.Sequential(
             nn.Conv2d(2 * LATENT_DIM, 1024, (1, 1), (1, 1)),
@@ -332,7 +305,7 @@ def train(path_to_zip: str,
             c = [torch.clone(attr).float().to(device)
                  for attr in attrs]
             images = (images - spect_mean) / spect_std
-            images = (torch.clip(images, -stds_kept, stds_kept) + stds_kept) / float(2*stds_kept)
+            images = torch.clip(images, -stds_kept, stds_kept) / float(stds_kept)
 
             z_mean = torch.zeros((len(images), LATENT_DIM, 1, 1)).float()
             z = torch.normal(z_mean, z_mean + 1).to(device)
@@ -372,18 +345,18 @@ def train(path_to_zip: str,
                 c = [torch.clone(attr).float().to(device)
                      for attr in attrs]
                 x = (images - spect_mean) / spect_std
-                x = (torch.clip(x, -stds_kept, stds_kept) + stds_kept) / float(2*stds_kept)
+                x = torch.clip(x, -stds_kept, stds_kept) / float(stds_kept)
 
                 z_mean = torch.zeros((len(x), LATENT_DIM, 1, 1)).float()
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
                 gener = G(z, c).reshape(n_show, *IMAGE_SHAPE)
-                gener = ((gener * 2 * stds_kept - stds_kept) * spect_std + spect_mean).cpu().numpy()
+                gener = (gener * stds_kept * spect_std + spect_mean).cpu().numpy()
                 recon = G(E(x, c), c).reshape(n_show, *IMAGE_SHAPE)
-                recon = ((recon * 2 * stds_kept - stds_kept) * spect_std + spect_mean).cpu().numpy()
+                recon = (recon * stds_kept * spect_std + spect_mean).cpu().numpy()
                 real = x.reshape((n_show, *IMAGE_SHAPE))
-                real = ((real * 2 * stds_kept - stds_kept) * spect_std + spect_mean).cpu().numpy()
+                real = (real * stds_kept * spect_std + spect_mean).cpu().numpy()
                 vmin, vmax = real.min(), real.max()
 
             if save_images_every is not None:
