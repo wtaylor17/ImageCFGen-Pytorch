@@ -225,7 +225,7 @@ class Generator(nn.Module):
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(16),
             nn.ConvTranspose2d(16, 1, (1, 1), (1, 1)),
-            nn.Tanh()
+            nn.Sigmoid()
         )
 
     @property
