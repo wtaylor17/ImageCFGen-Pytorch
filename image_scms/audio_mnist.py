@@ -37,12 +37,16 @@ class AudioMNISTData:
         self.transforms = {k: lambda x: x for k in self.data}
         self.inv_transforms = {k: lambda x: x for k in self.data}
 
-        self.audio_to_spectrogram = torchaudio.transforms.Spectrogram(
-            n_fft=255, win_length=255, hop_length=63, pad=32
+        self.audio_to_spectrogram = torchaudio.transforms.MelSpectrogram(
+            sample_rate=8000, n_mels=64, win_length=256, pad=64, n_fft=260
         ).to(self.device)
-        self.spectrogram_to_audio = torchaudio.transforms.GriffinLim(
-            n_fft=255, win_length=255, hop_length=63
+        im = torchaudio.transforms.InverseMelScale(
+            131, sample_rate=8000, n_mels=64, max_iter=10000
         ).to(self.device)
+        gl = torchaudio.transforms.GriffinLim(
+            win_length=256, n_fft=260
+        ).to(self.device)
+        self.spectrogram_to_audio = lambda x: gl(im(x))
 
         with ZipFile(self.path_to_zip, "r") as zf:
             json_str = zf.read("data/audioMNIST_meta.txt").decode("utf-8")
@@ -63,8 +67,7 @@ class AudioMNISTData:
                             raise ValueError("data length cannot exceed padding length.")
                         elif len(wav_arr) < 8000:
                             embedded_data = np.zeros(8000)
-                            offset = np.random.randint(low=0, high=8000 - len(wav_arr))
-                            embedded_data[offset:offset+len(wav_arr)] = wav_arr
+                            embedded_data[:len(wav_arr)] = wav_arr
                         elif len(wav_arr) == 8000:
                             # nothing to do here
                             embedded_data = wav_arr
@@ -93,12 +96,8 @@ class AudioMNISTData:
                         self.data["gender"].append(gender)
 
             self.data["audio"] = np.stack(self.data["audio"], axis=0)
-            self.transforms["audio"] = lambda x: (torch.transpose(self.audio_to_spectrogram(torch.from_numpy(x).float()
-                                                                                                 .to(self.device)),
-                                                                  dim0=1, dim1=2) + 1e-6).log()
-            self.inv_transforms["audio"] = lambda x: self.spectrogram_to_audio(
-                torch.from_numpy(np.transpose(x, axes=(0, 2, 1))).float().to(self.device).exp()
-            )
+            self.transforms["audio"] = lambda x: (self.audio_to_spectrogram(torch.from_numpy(x).float().to(self.device)) + 1e-6).log()
+            self.inv_transforms["audio"] = lambda x: self.spectrogram_to_audio(torch.from_numpy(x).to(self.device).exp())
 
             for k in self.data:
                 self.data[k] = np.asarray(self.data[k])
