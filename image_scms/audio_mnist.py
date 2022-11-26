@@ -224,22 +224,28 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.1)
         )
         self.dx = nn.Sequential(
+            nn.Dropout2d(0.2),
             nn.BatchNorm2d(48),
             nn.Conv2d(48, d, (5, 5), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(d),
+            nn.Dropout2d(0.2),
             nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(2 * d),
+            nn.Dropout2d(0.5),
             nn.Conv2d(2 * d, 4 * d, (5, 5), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(4 * d),
+            nn.Dropout2d(0.5),
             nn.Conv2d(4 * d, 8 * d, (5, 5), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(8 * d),
+            nn.Dropout2d(0.5),
             nn.Conv2d(8 * d, 16 * d, (5, 5), (2, 2)),
             nn.LeakyReLU(0.1),
             nn.BatchNorm2d(16 * d),
+            nn.Dropout2d(0.5),
             nn.Conv2d(16 * d, LATENT_DIM, (1, 1), (1, 1))
         )
         self.dxz = nn.Sequential(
