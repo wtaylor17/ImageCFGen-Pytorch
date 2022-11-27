@@ -303,8 +303,8 @@ def train(path_to_zip: str,
     print('Computing spectrogram statistics...')
     for batch in data.stream(batch_size=batch_size):
         n_batches += 1
-        spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1), keepdim=True)
-        spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1), keepdim=True)
+        spect_mean = spect_mean + batch["audio"].mean(dim=(0, 2), keepdim=True)
+        spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 2), keepdim=True)
     print('Done')
 
     spect_mean = (spect_mean / n_batches).float().to(device)
