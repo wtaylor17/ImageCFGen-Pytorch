@@ -303,14 +303,27 @@ def train(path_to_zip: str,
     print('Computing spectrogram statistics...')
     for batch in data.stream(batch_size=batch_size):
         n_batches += 1
-        spect_mean = spect_mean + batch["audio"].mean(dim=(0, 2), keepdim=True)
-        spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 2), keepdim=True)
-    print('Done')
+        spect_mean = spect_mean + batch["audio"].mean()
+        spect_ss = spect_ss + batch["audio"].square().mean()
 
     spect_mean = (spect_mean / n_batches).float().to(device)
     spect_ss = (spect_ss / n_batches).float().to(device)
-
     spect_std = torch.sqrt(spect_ss - spect_mean)
+
+    spect_min, spect_max = float('inf'), float(0)
+    for batch in data.stream(batch_size=batch_size):
+        audio = (batch["audio"] - spect_mean) / spect_std
+        spect_min = min(spect_min, audio.min().item())
+        spect_max = max(spect_max, audio.max().item())
+    print('Done.')
+
+    def spect_to_img(spect_):
+        spect_ = (spect_ - spect_mean) / (spect_std + 1e-6)
+        return (spect_ - spect_min) / (spect_max - spect_min)
+
+    def img_to_spect(img_):
+        img_ = img_ * (spect_max - spect_min) + spect_min
+        return img_ * (spect_std + 1e-6) + spect_mean
 
     attr_cols = [k for k in data.data if k != "audio"]
     print('Beginning training')
@@ -325,8 +338,7 @@ def train(path_to_zip: str,
             attrs = [batch[k] for k in attr_cols]
             c = [torch.clone(attr).float().to(device)
                  for attr in attrs]
-            images = (images - spect_mean) / spect_std
-            images = torch.clip(images, -stds_kept, stds_kept) / float(stds_kept)
+            images = spect_to_img(images)
 
             z_mean = torch.zeros((len(images), LATENT_DIM, 1, 1)).float()
             z = torch.normal(z_mean, z_mean + 1).to(device)
@@ -365,19 +377,15 @@ def train(path_to_zip: str,
                 attrs = [demo_batch[k] for k in attr_cols]
                 c = [torch.clone(attr).float().to(device)
                      for attr in attrs]
-                x = (images - spect_mean) / spect_std
-                x = torch.clip(x, -stds_kept, stds_kept) / float(stds_kept)
+                x = spect_to_img(images)
 
                 z_mean = torch.zeros((len(x), LATENT_DIM, 1, 1)).float()
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
-                gener = G(z, c).reshape(n_show, *IMAGE_SHAPE)
-                gener = (gener * stds_kept * spect_std + spect_mean).cpu().numpy()
-                recon = G(E(x, c), c).reshape(n_show, *IMAGE_SHAPE)
-                recon = (recon * stds_kept * spect_std + spect_mean).cpu().numpy()
-                real = x.reshape((n_show, *IMAGE_SHAPE))
-                real = (real * stds_kept * spect_std + spect_mean).cpu().numpy()
+                gener = img_to_spect(G(z, c).reshape(n_show, *IMAGE_SHAPE))
+                recon = img_to_spect(G(E(x, c), c).reshape(n_show, *IMAGE_SHAPE))
+                real = img_to_spect(x.reshape((n_show, *IMAGE_SHAPE)))
                 vmin, vmax = real.min(), real.max()
 
             if save_images_every is not None:
