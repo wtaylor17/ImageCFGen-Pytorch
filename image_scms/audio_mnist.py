@@ -383,9 +383,9 @@ def train(path_to_zip: str,
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
-                gener = img_to_spect(G(z, c).reshape(n_show, *IMAGE_SHAPE))
-                recon = img_to_spect(G(E(x, c), c).reshape(n_show, *IMAGE_SHAPE))
-                real = img_to_spect(x.reshape((n_show, *IMAGE_SHAPE)))
+                gener = img_to_spect(G(z, c).reshape(n_show, *IMAGE_SHAPE)).cpu().numpy()
+                recon = img_to_spect(G(E(x, c), c).reshape(n_show, *IMAGE_SHAPE)).cpu().numpy()
+                real = img_to_spect(x.reshape((n_show, *IMAGE_SHAPE))).cpu().numpy()
                 vmin, vmax = real.min(), real.max()
 
             if save_images_every is not None:
