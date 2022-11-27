@@ -198,7 +198,7 @@ class Generator(nn.Module):
             nn.ReLU(),
             nn.BatchNorm2d(d),
             ct2d(d, 1, (5, 5)),
-            nn.Tanh()
+            nn.Sigmoid()
         )
 
     @property
