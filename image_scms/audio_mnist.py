@@ -9,7 +9,6 @@ from tqdm import tqdm
 import torchaudio
 import librosa
 from scipy.io.wavfile import read as read_wav, write as write_wav
-from pytorch_msssim import ssim
 from functools import partial
 
 from .training_utils import (init_weights,
@@ -17,7 +16,7 @@ from .training_utils import (init_weights,
                              binarized_attribute_channel)
 
 
-LATENT_DIM = 128
+LATENT_DIM = 512
 IMAGE_SHAPE = (128, 128)
 
 
@@ -279,8 +278,7 @@ def train(path_to_zip: str,
           save_images_every=2,
           batch_size=128,
           image_output_path='',
-          ssim_coef=0.0):
-    assert 0 <= ssim_coef <= 1
+          mse_coef=0.0):
     E = Encoder().to(device)
     G = Generator().to(device)
     D = Discriminator().to(device)
@@ -356,8 +354,9 @@ def train(path_to_zip: str,
             EX = E(images, c)
             DEX = G(EX, c)
             loss_EG = loss_calc.generator_loss(images, z, c)
-            if ssim_coef > 0:
-                loss_EG = (1 - ssim_coef) * loss_EG - ssim_coef * ssim(images, DEX, data_range=1.0)
+            if mse_coef > 0:
+                mse = torch.square(images - DEX).mean()
+                loss_EG = loss_EG + mse_coef * mse
             loss_EG.backward()
             optimizer_E.step()
 
