@@ -350,14 +350,14 @@ def train(path_to_zip: str,
             loss_D = loss_calc.discriminator_loss(images, z, c)
             loss_D.backward()
             optimizer_D.step()
-            
+
             # Encoder & Generator training
             optimizer_E.zero_grad()
             EX = E(images, c)
             DEX = G(EX, c)
             loss_EG = loss_calc.generator_loss(images, z, c)
             if ssim_coef > 0:
-                loss_EG = (1 - ssim_coef) * loss_EG + ssim_coef * ssim(images, DEX, data_range=1.0)
+                loss_EG = (1 - ssim_coef) * loss_EG - ssim_coef * ssim(images, DEX, data_range=1.0)
             loss_EG.backward()
             optimizer_E.step()
 
