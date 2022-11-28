@@ -94,10 +94,10 @@ class AdversariallyLearnedInference(nn.Module):
         return loss(x, rec)
 
 
-def init_weights(layer):
+def init_weights(layer, std=0.01):
     name = layer.__class__.__name__
     if name.startswith('Conv'):
-        torch.nn.init.normal_(layer.weight, mean=0, std=0.01)
+        torch.nn.init.normal_(layer.weight, mean=0, std=std)
         if layer.bias is not None:
             torch.nn.init.constant_(layer.bias, 0)
 

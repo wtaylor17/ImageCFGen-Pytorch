@@ -282,9 +282,9 @@ def train(path_to_zip: str,
     G = Generator().to(device)
     D = Discriminator().to(device)
 
-    E.apply(init_weights)
-    G.apply(init_weights)
-    D.apply(init_weights)
+    # E.apply(init_weights)
+    # G.apply(init_weights)
+    # D.apply(init_weights)
 
     optimizer_E = torch.optim.Adam(list(E.parameters()) + list(G.parameters()),
                                    lr=l_rate, betas=(0.5, 0.999))
