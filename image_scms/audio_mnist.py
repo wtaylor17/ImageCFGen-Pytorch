@@ -9,6 +9,7 @@ from tqdm import tqdm
 import torchaudio
 import librosa
 from scipy.io.wavfile import read as read_wav, write as write_wav
+from pytorch_msssim import ssim
 from functools import partial
 
 from .training_utils import (init_weights,
@@ -277,14 +278,16 @@ def train(path_to_zip: str,
           device='cpu',
           save_images_every=2,
           batch_size=128,
-          image_output_path=''):
+          image_output_path='',
+          ssim_coef=0.0):
+    assert 0 <= ssim_coef <= 1
     E = Encoder().to(device)
     G = Generator().to(device)
     D = Discriminator().to(device)
 
-    # E.apply(init_weights)
-    # G.apply(init_weights)
-    # D.apply(init_weights)
+    E.apply(init_weights)
+    G.apply(init_weights)
+    D.apply(init_weights)
 
     optimizer_E = torch.optim.Adam(list(E.parameters()) + list(G.parameters()),
                                    lr=l_rate, betas=(0.5, 0.999))
@@ -348,14 +351,18 @@ def train(path_to_zip: str,
             loss_D.backward()
             optimizer_D.step()
 
+            EX = E(images, c)
+            DEX = G(EX, c)
             # Encoder & Generator training
             optimizer_E.zero_grad()
             loss_EG = loss_calc.generator_loss(images, z, c)
+            if ssim_coef > 0:
+                loss_EG = (1 - ssim_coef) * loss_EG + ssim_coef * ssim(images, DEX, data_range=1.0)
             loss_EG.backward()
             optimizer_E.step()
 
             Gz = G(z, c).detach()
-            EX = E(images, c).detach()
+            EX = EX.detach()
             DG = D(Gz, z, c)
             DE = D(images, EX, c)
             D_score += DG.mean().item()
