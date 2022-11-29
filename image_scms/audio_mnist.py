@@ -141,22 +141,25 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         self.layers = nn.Sequential(
             nn.BatchNorm2d(48),
-            nn.Conv2d(48, d, (5, 5), (2, 2)),
+            nn.Conv2d(48, d, (3, 3), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(d),
-            nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
+            nn.Conv2d(d, 2 * d, (3, 3), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(2 * d),
-            nn.Conv2d(2 * d, 4 * d, (5, 5), (2, 2)),
+            nn.Conv2d(2 * d, 4 * d, (3, 3), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(4 * d),
-            nn.Conv2d(4 * d, 8 * d, (5, 5), (2, 2)),
+            nn.Conv2d(4 * d, 8 * d, (3, 3), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(8 * d),
-            nn.Conv2d(8 * d, 16 * d, (5, 5), (2, 2)),
+            nn.Conv2d(8 * d, 16 * d, (3, 3), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(16 * d),
-            nn.Conv2d(16 * d, LATENT_DIM, (1, 1), (1, 1))
+            nn.Conv2d(16 * d, 32 * d, (3, 3), (2, 2)),
+            nn.ReLU(),
+            nn.BatchNorm2d(32 * d),
+            nn.Conv2d(32 * d, LATENT_DIM, (1, 1), (1, 1))
         )
 
     @property
@@ -175,29 +178,25 @@ class Generator(nn.Module):
     def __init__(self, d=8):
         super(Generator, self).__init__()
         ct2d = partial(nn.ConvTranspose2d,
-                       stride=(2, 2),
-                       padding=(2, 2),
-                       output_padding=(1, 1))
+                       stride=(2, 2))
         self.layers = nn.Sequential(
             nn.BatchNorm2d(LATENT_DIM + 47),
-            nn.Flatten(),
-            nn.Linear(LATENT_DIM + 47, 256 * d),
+            ct2d(LATENT_DIM + 47, 16 * d, (3, 3)),
             nn.ReLU(),
-            nn.Unflatten(1, (16 * d, 4, 4)),
             nn.BatchNorm2d(16 * d),
-            ct2d(16 * d, 8 * d, (5, 5)),
+            ct2d(16 * d, 8 * d, (3, 3)),
             nn.ReLU(),
             nn.BatchNorm2d(8 * d),
-            ct2d(8 * d, 4 * d, (5, 5)),
+            ct2d(8 * d, 4 * d, (3, 3)),
             nn.ReLU(),
             nn.BatchNorm2d(4 * d),
-            ct2d(4 * d, 2 * d, (5, 5)),
+            ct2d(4 * d, 2 * d, (3, 3)),
             nn.ReLU(),
             nn.BatchNorm2d(2 * d),
-            ct2d(2 * d, d, (5, 5)),
+            ct2d(2 * d, d, (3, 3), output_padding=(1, 1)),
             nn.ReLU(),
             nn.BatchNorm2d(d),
-            ct2d(d, 1, (5, 5)),
+            ct2d(d, 1, (2, 2)),
             nn.Sigmoid()
         )
 
@@ -226,27 +225,31 @@ class Discriminator(nn.Module):
         self.dx = nn.Sequential(
             nn.BatchNorm2d(48),
             nn.Dropout2d(0.2),
-            nn.Conv2d(48, d, (5, 5), (2, 2)),
-            nn.LeakyReLU(0.1),
+            nn.Conv2d(48, d, (3, 3), (2, 2)),
+            nn.ReLU(),
             nn.BatchNorm2d(d),
             nn.Dropout2d(0.2),
-            nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
-            nn.LeakyReLU(0.1),
+            nn.Conv2d(d, 2 * d, (3, 3), (2, 2)),
+            nn.ReLU(),
             nn.BatchNorm2d(2 * d),
             nn.Dropout2d(0.5),
-            nn.Conv2d(2 * d, 4 * d, (5, 5), (2, 2)),
-            nn.LeakyReLU(0.1),
+            nn.Conv2d(2 * d, 4 * d, (3, 3), (2, 2)),
+            nn.ReLU(),
             nn.BatchNorm2d(4 * d),
             nn.Dropout2d(0.5),
-            nn.Conv2d(4 * d, 8 * d, (5, 5), (2, 2)),
-            nn.LeakyReLU(0.1),
+            nn.Conv2d(4 * d, 8 * d, (3, 3), (2, 2)),
+            nn.ReLU(),
             nn.BatchNorm2d(8 * d),
             nn.Dropout2d(0.5),
-            nn.Conv2d(8 * d, 16 * d, (5, 5), (2, 2)),
-            nn.LeakyReLU(0.1),
+            nn.Conv2d(8 * d, 16 * d, (3, 3), (2, 2)),
+            nn.ReLU(),
             nn.BatchNorm2d(16 * d),
             nn.Dropout2d(0.5),
-            nn.Conv2d(16 * d, LATENT_DIM, (1, 1), (1, 1))
+            nn.Conv2d(16 * d, 32 * d, (3, 3), (2, 2)),
+            nn.ReLU(),
+            nn.BatchNorm2d(32 * d),
+            nn.Dropout2d(0.5),
+            nn.Conv2d(32 * d, LATENT_DIM, (1, 1), (1, 1))
         )
         self.dxz = nn.Sequential(
             nn.Conv2d(2 * LATENT_DIM, 1024, (1, 1), (1, 1)),
