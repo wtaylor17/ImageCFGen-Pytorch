@@ -214,32 +214,32 @@ class Discriminator(nn.Module):
     def __init__(self, d=8):
         super(Discriminator, self).__init__()
         self.dz = nn.Sequential(
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.5),
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.1),
-            nn.Dropout2d(0.2),
+            nn.Dropout2d(0.5),
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.1)
         )
         self.dx = nn.Sequential(
             nn.BatchNorm2d(2),
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.5),
             nn.Conv2d(2, d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(d),
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.5),
             nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(2 * d),
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.5),
             nn.Conv2d(2 * d, 4 * d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(4 * d),
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.5),
             nn.Conv2d(4 * d, 8 * d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(8 * d),
-            nn.Dropout2d(0.1),
+            nn.Dropout2d(0.5),
             nn.Conv2d(8 * d, LATENT_DIM, (5, 5), (2, 2)),
         )
         self.dxz = nn.Sequential(
@@ -336,7 +336,9 @@ def train(path_to_zip: str,
 
             # Discriminator training
             optimizer_D.zero_grad()
-            loss_D = loss_calc.discriminator_loss(images, z, c)
+            loss_D = loss_calc.discriminator_loss(
+                images + torch.normal(0, 0.01, images.shape).to(device), z, c
+            )
             loss_D.backward()
             optimizer_D.step()
 
@@ -344,7 +346,9 @@ def train(path_to_zip: str,
             optimizer_E.zero_grad()
             EX = E(images, c)
             DEX = G(EX, c)
-            loss_EG = loss_calc.generator_loss(images, z, c)
+            loss_EG = loss_calc.generator_loss(
+                images + torch.normal(0, 0.01, images.shape).to(device), z, c
+            )
             if mse_coef > 0:
                 mse = torch.square(images - DEX).mean()
                 loss_EG = loss_EG + mse_coef * mse
