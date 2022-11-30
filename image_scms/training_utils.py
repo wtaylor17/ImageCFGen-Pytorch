@@ -47,7 +47,7 @@ class AdversariallyLearnedInference(nn.Module):
         self.decoder = decoder
         self.discriminator = discriminator
 
-    def __call__(self, x, z, a=None):
+    def __call__(self, x, z, a=None, add_noise=False, noise_scale=0.1):
         encoder_args = (x,)
         decoder_args = (z,)
         if a is not None:
@@ -57,18 +57,20 @@ class AdversariallyLearnedInference(nn.Module):
         gz = self.decoder(*decoder_args)
         dg_args = (gz, z)
         de_args = (x, ex)
+        if add_noise:
+            de_args = (x + torch.normal(0, noise_scale, x.shape), ex)
         if a is not None:
             dg_args = dg_args + (a,)
             de_args = de_args + (a,)
 
         return self.discriminator(*dg_args), self.discriminator(*de_args)
 
-    def discriminator_loss(self, x, z, a=None, eps=1e-6):
-        dg, de = self(x, z, a=a)
+    def discriminator_loss(self, x, z, a=None, eps=1e-6, **kwargs):
+        dg, de = self(x, z, a=a, **kwargs)
         return log_loss(dg, de, eps)
 
-    def generator_loss(self, x, z, a=None, eps=1e-6):
-        dg, de = self(x, z, a=a)
+    def generator_loss(self, x, z, a=None, eps=1e-6, **kwargs):
+        dg, de = self(x, z, a=a, **kwargs)
         return log_loss(de, dg, eps)
 
     def rec_loss(self, x, z=None, a=None, metric='ssim'):
