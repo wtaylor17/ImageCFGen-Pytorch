@@ -28,7 +28,7 @@ def attributes_image(image, attributes, device='cpu'):
     _, k = attributes.shape
     attr_image = torch.zeros((n, 1, w, h)).float().to(device)
 
-    attr_image[:, :, w//2, h//2-k//2-k % 2:h//2+k//2] = attributes.reshape((n, 1, k))
+    attr_image[:, :, :, h//2-k//2-k % 2:h//2+k//2] = attributes.reshape((n, 1, 1, k))
     return torch.concat([image.to(device), attr_image], dim=1)
 
 

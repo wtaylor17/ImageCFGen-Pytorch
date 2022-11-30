@@ -138,29 +138,30 @@ class AudioMNISTData:
 
 
 class Encoder(nn.Module):
-    def __init__(self, d=8):
+    def __init__(self, d=32):
         super(Encoder, self).__init__()
+        c2d = partial(nn.Conv2d, stride=(2, 2))
         self.layers = nn.Sequential(
             nn.BatchNorm2d(2),
-            nn.Conv2d(2, d, (3, 3), (2, 2)),
+            c2d(2, d, (3, 3)),
             nn.ReLU(),
             nn.BatchNorm2d(d),
-            nn.Conv2d(d, 2 * d, (3, 3), (2, 2)),
+            c2d(d, 2 * d, (3, 3)),
             nn.ReLU(),
             nn.BatchNorm2d(2 * d),
-            nn.Conv2d(2 * d, 4 * d, (3, 3), (2, 2)),
+            c2d(2 * d, 4 * d, (3, 3)),
             nn.ReLU(),
             nn.BatchNorm2d(4 * d),
-            nn.Conv2d(4 * d, 8 * d, (3, 3), (2, 2)),
+            c2d(4 * d, 8 * d, (3, 3)),
             nn.ReLU(),
             nn.BatchNorm2d(8 * d),
-            nn.Conv2d(8 * d, 16 * d, (3, 3), (2, 2)),
+            c2d(8 * d, 16 * d, (3, 3)),
             nn.ReLU(),
             nn.BatchNorm2d(16 * d),
-            nn.Conv2d(16 * d, 32 * d, (3, 3), (2, 2)),
+            c2d(16 * d, 32 * d, (3, 3)),
             nn.ReLU(),
             nn.BatchNorm2d(32 * d),
-            nn.Conv2d(32 * d, LATENT_DIM, (1, 1), (1, 1))
+            nn.Conv2d(32 * d, LATENT_DIM, (1, 1)),
         )
 
     @property
@@ -173,7 +174,7 @@ class Encoder(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, d=8):
+    def __init__(self, d=32):
         super(Generator, self).__init__()
         ct2d = partial(nn.ConvTranspose2d,
                        stride=(2, 2))
