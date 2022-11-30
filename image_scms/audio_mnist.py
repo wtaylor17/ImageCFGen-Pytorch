@@ -338,7 +338,7 @@ def train(path_to_zip: str,
             # Discriminator training
             optimizer_D.zero_grad()
             loss_D = loss_calc.discriminator_loss(
-                images + torch.normal(0, 0.1, images.shape).to(device), z, c
+                images, z, c
             )
             loss_D.backward()
             optimizer_D.step()
@@ -348,7 +348,7 @@ def train(path_to_zip: str,
             EX = E(images, c)
             DEX = G(EX, c)
             loss_EG = loss_calc.generator_loss(
-                images + torch.normal(0, 0.1, images.shape).to(device), z, c
+                images, z, c
             )
             if mse_coef > 0:
                 mse = torch.square(images - DEX).mean()
