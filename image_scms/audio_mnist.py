@@ -212,7 +212,7 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, d=8):
+    def __init__(self, d=32):
         super(Discriminator, self).__init__()
         self.dz = nn.Sequential(
             nn.Dropout2d(0.5),
@@ -224,11 +224,11 @@ class Discriminator(nn.Module):
         )
         self.dx = nn.Sequential(
             nn.BatchNorm2d(2),
-            nn.Dropout2d(0.5),
+            nn.Dropout2d(0.2),
             nn.Conv2d(2, d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(d),
-            nn.Dropout2d(0.5),
+            nn.Dropout2d(0.2),
             nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(2 * d),
