@@ -214,32 +214,32 @@ class Discriminator(nn.Module):
     def __init__(self, d=8):
         super(Discriminator, self).__init__()
         self.dz = nn.Sequential(
-            # nn.Dropout2d(0.2),
+            nn.Dropout2d(0.1),
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.1),
-            # nn.Dropout2d(0.5),
+            nn.Dropout2d(0.2),
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.1)
         )
         self.dx = nn.Sequential(
             nn.BatchNorm2d(2),
-            # nn.Dropout2d(0.5),
+            nn.Dropout2d(0.1),
             nn.Conv2d(2, d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(d),
-            # nn.Dropout2d(0.5),
+            nn.Dropout2d(0.1),
             nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(2 * d),
-            # nn.Dropout2d(0.5),
+            nn.Dropout2d(0.1),
             nn.Conv2d(2 * d, 4 * d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(4 * d),
-            # nn.Dropout2d(0.5),
+            nn.Dropout2d(0.1),
             nn.Conv2d(4 * d, 8 * d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(8 * d),
-            # nn.Dropout2d(0.5),
+            nn.Dropout2d(0.1),
             nn.Conv2d(8 * d, LATENT_DIM, (5, 5), (2, 2)),
         )
         self.dxz = nn.Sequential(
