@@ -13,6 +13,7 @@ from functools import partial
 
 from .training_utils import (init_weights,
                              AdversariallyLearnedInference,
+                             attributes_image,
                              binarized_attribute_channel)
 
 
@@ -140,8 +141,8 @@ class Encoder(nn.Module):
     def __init__(self, d=8):
         super(Encoder, self).__init__()
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(48),
-            nn.Conv2d(48, d, (3, 3), (2, 2)),
+            nn.BatchNorm2d(2),
+            nn.Conv2d(2, d, (3, 3), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(d),
             nn.Conv2d(d, 2 * d, (3, 3), (2, 2)),
@@ -167,11 +168,8 @@ class Encoder(nn.Module):
         return next(self.parameters()).device
 
     def forward(self, X, a):
-        inp = torch.concat([X] + [
-            binarized_attribute_channel(X, ai, device=self.device)
-            for ai in a
-        ], dim=1)
-        return self.layers(inp)
+        attrs = torch.concat(a, dim=1)
+        return self.layers(attributes_image(X, attrs, self.device))
 
 
 class Generator(nn.Module):
@@ -205,10 +203,11 @@ class Generator(nn.Module):
         return next(self.parameters()).device
 
     def forward(self, z, a):
-        return self.layers(torch.concat([z] + [
-            binarized_attribute_channel(z, ai, device=self.device)
-            for ai in a
-        ], dim=1))
+        attrs = torch.concat(a, dim=1)
+        z_a = torch.concat([
+            z, attrs.reshape((-1, attrs.shape[1], 1, 1))
+        ], dim=1)
+        return self.layers(z_a)
 
 
 class Discriminator(nn.Module):
@@ -223,33 +222,25 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.1)
         )
         self.dx = nn.Sequential(
-            nn.BatchNorm2d(48),
-            nn.Dropout2d(0.2),
-            nn.Conv2d(48, d, (3, 3), (2, 2)),
+            nn.BatchNorm2d(2),
+            nn.Dropout2d(0.5),
+            nn.Conv2d(2, d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(d),
-            nn.Dropout2d(0.2),
-            nn.Conv2d(d, 2 * d, (3, 3), (2, 2)),
+            nn.Dropout2d(0.5),
+            nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(2 * d),
             nn.Dropout2d(0.5),
-            nn.Conv2d(2 * d, 4 * d, (3, 3), (2, 2)),
+            nn.Conv2d(2 * d, 4 * d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(4 * d),
             nn.Dropout2d(0.5),
-            nn.Conv2d(4 * d, 8 * d, (3, 3), (2, 2)),
+            nn.Conv2d(4 * d, 8 * d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(8 * d),
             nn.Dropout2d(0.5),
-            nn.Conv2d(8 * d, 16 * d, (3, 3), (2, 2)),
-            nn.ReLU(),
-            nn.BatchNorm2d(16 * d),
-            nn.Dropout2d(0.5),
-            nn.Conv2d(16 * d, 32 * d, (3, 3), (2, 2)),
-            nn.ReLU(),
-            nn.BatchNorm2d(32 * d),
-            nn.Dropout2d(0.5),
-            nn.Conv2d(32 * d, LATENT_DIM, (1, 1), (1, 1))
+            nn.Conv2d(8 * d, LATENT_DIM, (5, 5), (2, 2)),
         )
         self.dxz = nn.Sequential(
             nn.Conv2d(2 * LATENT_DIM, 1024, (1, 1), (1, 1)),
@@ -265,11 +256,8 @@ class Discriminator(nn.Module):
         return next(self.parameters()).device
 
     def forward(self, X, z, a):
-        inp = torch.concat([X] + [
-            binarized_attribute_channel(X, ai, device=self.device)
-            for ai in a
-        ], dim=1)
-        dx = self.dx(inp)
+        attrs = torch.concat(a, dim=1)
+        dx = self.dx(attributes_image(X, attrs, self.device))
         dz = self.dz(z)
         return self.dxz(torch.concat([dx, dz], dim=1)).reshape((-1, 1))
 
