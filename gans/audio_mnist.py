@@ -155,7 +155,7 @@ class Generator(nn.Module):
             nn.ReLU(),
             nn.BatchNorm2d(d),
             ct2d(d, 1, (2, 2)),
-            nn.Sigmoid()
+            nn.Tanh()
         )
 
     @property
@@ -245,11 +245,10 @@ def train(path_to_zip: str,
 
     def spect_to_img(spect_):
         spect_ = (spect_ - spect_mean) / (spect_std + 1e-6)
-        return torch.clip(spect_, -stds_kept, stds_kept) / float(2 * stds_kept) + .5
+        return torch.clip(spect_, -stds_kept, stds_kept) / float(stds_kept)
 
     def img_to_spect(img_):
-        img_ = (img_ - .5) * float(2 * stds_kept)
-        return img_ * (spect_std + 1e-6) + spect_mean
+        return img_ * stds_kept * (spect_std + 1e-6) + spect_mean
 
     print('Beginning training')
     for epoch in range(n_epochs):
@@ -300,9 +299,9 @@ def train(path_to_zip: str,
                 z_mean = torch.zeros((len(x), LATENT_DIM)).float()
                 z = torch.normal(z_mean, z_mean + 1).to(device)
 
-                gener = img_to_spect(G(z).reshape(n_show, *IMAGE_SHAPE)).cpu().numpy()
-                real = img_to_spect(x.reshape((n_show, *IMAGE_SHAPE))).cpu().numpy()
-                vmin, vmax = real.min(), real.max()
+                gener = G(z).reshape(n_show, *IMAGE_SHAPE)
+                real = x.reshape((n_show, *IMAGE_SHAPE))
+                vmin, vmax = -1, 1
 
             if save_images_every is not None:
                 import matplotlib.pyplot as plt
@@ -315,15 +314,19 @@ def train(path_to_zip: str,
                 fig.text(0.01, 0.25, 'x', ha='left')
 
                 for i in range(n_show):
-                    ax[0, i].imshow(gener[i], vmin=vmin, vmax=vmax)
+                    ax[0, i].imshow(gener[i].cpu(), vmin=vmin, vmax=vmax)
                     ax[0, i].axis('off')
-                    ax[1, i].imshow(real[i], vmin=vmin, vmax=vmax)
+                    ax[1, i].imshow(real[i].cpu(), vmin=vmin, vmax=vmax)
                     ax[1, i].axis('off')
                 plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                 plt.close()
 
-                gener_wav = data.inv_transforms["audio"](gener[0:1]).cpu().numpy()[0]
-                real_wav = data.inv_transforms["audio"](real[0:1]).cpu().numpy()[0]
+                gener_wav = data.inv_transforms["audio"](
+                    img_to_spect(gener[0:1]).cpu().numpy()
+                ).cpu().numpy()[0]
+                real_wav = data.inv_transforms["audio"](
+                    img_to_spect(real[0:1]).cpu().numpy()
+                ).cpu().numpy()[0]
 
                 write_wav(f"{image_output_path}/epoch-{epoch + 1}-generated.wav", 8000,
                           np.int16(gener_wav / np.max(np.abs(gener_wav)) * 32767))
