@@ -216,14 +216,15 @@ def train(path_to_zip: str,
           save_images_every=2,
           batch_size=128,
           image_output_path='',
-          mse_coef=0.0):
-    G = Generator().to(device)
-    D = Discriminator().to(device)
+          generator_size=32,
+          discriminator_size=32):
+    G = Generator(generator_size).to(device)
+    D = Discriminator(discriminator_size).to(device)
 
     optimizer_G = torch.optim.Adam(G.parameters(),
-                                   lr=l_rate, betas=(0.5, 0.999))
+                                   lr=l_rate)
     optimizer_D = torch.optim.Adam(D.parameters(),
-                                   lr=l_rate, betas=(0.5, 0.999))
+                                   lr=l_rate)
 
     print('Loading dataset...')
     data = AudioMNISTData(path_to_zip, device=device)
@@ -240,23 +241,16 @@ def train(path_to_zip: str,
     spect_mean = (spect_mean / n_batches).float().to(device)
     spect_ss = (spect_ss / n_batches).float().to(device)
     spect_std = torch.sqrt(spect_ss - spect_mean)
-
-    spect_min, spect_max = float('inf'), float(0)
-    for batch in data.stream(batch_size=batch_size):
-        audio = (batch["audio"] - spect_mean) / spect_std
-        spect_min = min(spect_min, audio.min().item())
-        spect_max = max(spect_max, audio.max().item())
-    print('Done.')
+    stds_kept = 3
 
     def spect_to_img(spect_):
         spect_ = (spect_ - spect_mean) / (spect_std + 1e-6)
-        return (spect_ - spect_min) / (spect_max - spect_min)
+        return torch.clip(spect_, -stds_kept, stds_kept) / float(2 * stds_kept) + .5
 
     def img_to_spect(img_):
-        img_ = img_ * (spect_max - spect_min) + spect_min
+        img_ = (img_ - .5) * float(2 * stds_kept)
         return img_ * (spect_std + 1e-6) + spect_mean
 
-    attr_cols = [k for k in data.data if k != "audio"]
     print('Beginning training')
     for epoch in range(n_epochs):
         D_score = 0.
