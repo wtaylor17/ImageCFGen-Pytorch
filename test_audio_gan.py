@@ -1,16 +1,16 @@
-from image_scms.audio_mnist import *
+# from image_scms.audio_mnist import *
+from gans.audio_mnist import *
 
 if __name__ == "__main__":
-    spec = torch.zeros((10, 1, *IMAGE_SHAPE))
-    attrs = torch.zeros((10, 47))
-    enc = Encoder()
+    spec = torch.zeros((10, *IMAGE_SHAPE))
+    latent = torch.randn((10, LATENT_DIM))
     dec = Generator()
     disc = Discriminator()
 
-    latent = enc(spec, [attrs])
-    print(f'E(x, a) shape is {latent.shape}')
-    rec = dec(latent, [attrs])
-    print(f'G(E(x, a), a) shape is {rec.shape}')
+    rec = dec(latent)
+    print(f'G(z) shape is {rec.shape}')
 
-    scores = disc(rec, latent, [attrs])
-    print(f'D(G(E(x, a), a), E(x, a), a) shape is {scores.shape}')
+    scores = disc(spec)
+    print(f'D(x) shape is {scores.shape}')
+    scores = disc(dec(latent))
+    print(f'D(G(z)) shape is {scores.shape}')
