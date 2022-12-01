@@ -136,25 +136,22 @@ class Generator(nn.Module):
     def __init__(self, d=32):
         super(Generator, self).__init__()
         ct2d = partial(nn.ConvTranspose2d,
-                       stride=(2, 2))
+                       stride=2,
+                       padding=2,
+                       output_padding=1)
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(LATENT_DIM),
-            ct2d(LATENT_DIM, 16 * d, (3, 3)),
+            nn.Linear(LATENT_DIM, 256 * d),
+            nn.Unflatten(1, (16 * d, 4, 4)),
             nn.ReLU(),
-            nn.BatchNorm2d(16 * d),
-            ct2d(16 * d, 8 * d, (3, 3)),
+            ct2d(16 * d, 8 * d, (5, 5)),
             nn.ReLU(),
-            nn.BatchNorm2d(8 * d),
-            ct2d(8 * d, 4 * d, (3, 3)),
+            ct2d(8 * d, 4 * d, (5, 5)),
             nn.ReLU(),
-            nn.BatchNorm2d(4 * d),
-            ct2d(4 * d, 2 * d, (3, 3)),
+            ct2d(4 * d, 2 * d, (5, 5)),
             nn.ReLU(),
-            nn.BatchNorm2d(2 * d),
-            ct2d(2 * d, d, (3, 3), output_padding=(1, 1)),
+            ct2d(2 * d, d, (5, 5)),
             nn.ReLU(),
-            nn.BatchNorm2d(d),
-            ct2d(d, 1, (2, 2)),
+            ct2d(d, 1, (5, 5)),
             nn.Tanh()
         )
 
@@ -163,40 +160,30 @@ class Generator(nn.Module):
         return next(self.parameters()).device
 
     def forward(self, z: torch.Tensor):
-        z = z.reshape((-1, LATENT_DIM, 1, 1))
+        z = z.reshape((-1, LATENT_DIM))
         return self.layers(z)
 
 
 class Discriminator(nn.Module):
-    def __init__(self, d=8):
+    def __init__(self, d=64):
         super(Discriminator, self).__init__()
-        self.dx = nn.Sequential(
-            nn.BatchNorm2d(1),
-            nn.Dropout2d(0.5),
+        self.layers = nn.Sequential(
             nn.Conv2d(1, d, (5, 5), (2, 2)),
-            nn.ReLU(),
-            nn.BatchNorm2d(d),
-            nn.Dropout2d(0.5),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
-            nn.ReLU(),
             nn.BatchNorm2d(2 * d),
-            nn.Dropout2d(0.5),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(2 * d, 4 * d, (5, 5), (2, 2)),
-            nn.ReLU(),
             nn.BatchNorm2d(4 * d),
-            nn.Dropout2d(0.5),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(4 * d, 8 * d, (5, 5), (2, 2)),
-            nn.ReLU(),
             nn.BatchNorm2d(8 * d),
-            nn.Dropout2d(0.5),
-            nn.Conv2d(8 * d, LATENT_DIM, (5, 5), (2, 2)),
-        )
-        self.head = nn.Sequential(
-            nn.Conv2d(LATENT_DIM, 1024, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(1024, 1, (1, 1), (1, 1)),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(8 * d, 16 * d, (5, 5), (2, 2)),
+            nn.BatchNorm2d(16 * d),
+            nn.LeakyReLU(0.2),
+            nn.Flatten(),
+            nn.Linear(16 * d, 1),
             nn.Sigmoid()
         )
 
@@ -206,7 +193,7 @@ class Discriminator(nn.Module):
 
     def forward(self, X: torch.Tensor):
         X = X.reshape((-1, 1, *IMAGE_SHAPE))
-        return self.head(self.dx(X)).reshape((-1, 1))
+        return self.layers(X)
 
 
 def train(path_to_zip: str,
