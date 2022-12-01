@@ -274,13 +274,13 @@ def train(path_to_zip: str,
             optimizer_D.zero_grad()
             scores_real = D(images)
             scores_fake = D(G(z))
-            loss_D = -(torch.log(scores_real + 1e-6) + torch.log(1 - scores_fake + 1e-6))
+            loss_D = -(torch.log(scores_real + 1e-6) + torch.log(1 - scores_fake + 1e-6)).mean()
             loss_D.backward()
             optimizer_D.step()
 
             # Generator training
             optimizer_G.zero_grad()
-            loss_EG = torch.log(1 - D(G(z)) + 1e-6)
+            loss_EG = torch.log(1 - D(G(z)) + 1e-6).mean()
             loss_EG.backward()
             optimizer_G.step()
 
