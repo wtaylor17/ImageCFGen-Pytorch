@@ -212,7 +212,7 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, d=32):
+    def __init__(self, d=8):
         super(Discriminator, self).__init__()
         self.dz = nn.Sequential(
             nn.Dropout2d(0.5),
@@ -224,11 +224,11 @@ class Discriminator(nn.Module):
         )
         self.dx = nn.Sequential(
             nn.BatchNorm2d(2),
-            nn.Dropout2d(0.2),
+            nn.Dropout2d(0.5),
             nn.Conv2d(2, d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(d),
-            nn.Dropout2d(0.2),
+            nn.Dropout2d(0.5),
             nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
             nn.ReLU(),
             nn.BatchNorm2d(2 * d),
@@ -338,7 +338,7 @@ def train(path_to_zip: str,
             # Discriminator training
             optimizer_D.zero_grad()
             loss_D = loss_calc.discriminator_loss(
-                images, z, c, add_noise=True
+                images, z, c
             )
             loss_D.backward()
             optimizer_D.step()
@@ -348,7 +348,7 @@ def train(path_to_zip: str,
             EX = E(images, c)
             DEX = G(EX, c)
             loss_EG = loss_calc.generator_loss(
-                images, z, c, add_noise=True
+                images, z, c
             )
             if mse_coef > 0:
                 mse = torch.square(images - DEX).mean()
