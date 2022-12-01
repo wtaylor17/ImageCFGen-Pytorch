@@ -58,7 +58,8 @@ class AdversariallyLearnedInference(nn.Module):
         dg_args = (gz, z)
         de_args = (x, ex)
         if add_noise:
-            de_args = (x + torch.normal(0, noise_scale, x.shape), ex)
+            device = next(self.encoder.parameters()).device
+            de_args = (x + torch.normal(0, noise_scale, x.shape).to(device), ex)
         if a is not None:
             dg_args = dg_args + (a,)
             de_args = de_args + (a,)
