@@ -14,3 +14,6 @@ if __name__ == "__main__":
     print(f'D(x) shape is {scores.shape}')
     scores = disc(dec(latent))
     print(f'D(G(z)) shape is {scores.shape}')
+
+    loss = wgan_loss_it(disc, spec, spec)
+    print(f'WGAN-GP loss is {loss.shape}')

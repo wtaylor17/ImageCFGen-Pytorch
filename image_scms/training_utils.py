@@ -112,3 +112,37 @@ class LambdaLayer(nn.Module):
 
     def forward(self, *args, **kwargs):
         return self.fn(*args, **kwargs)
+
+
+def compute_gradient_penalty(disc: nn.Module, interpolates: torch.Tensor):
+    """Calculates the gradient penalty loss for WGAN GP
+    source: https://github.com/eriklindernoren/PyTorch-GAN/blob/a163b82beff3d01688d8315a3fd39080400e7c01/implementations/wgan_gp/wgan_gp.py"""
+    interpolates = interpolates.requires_grad_(True)
+    d_interpolates = disc(interpolates)
+    fake = torch.autograd.Variable(torch.ones_like(d_interpolates), requires_grad=False)
+    gradients = torch.autograd.grad(
+        outputs=d_interpolates,
+        inputs=interpolates,
+        grad_outputs=fake,
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True,
+    )[0]
+    gradients = gradients.view(gradients.size(0), -1)
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+    return gradient_penalty
+
+
+def wgan_loss_it(disc: nn.Module,
+                 x_real: torch.Tensor,
+                 x_fake: torch.Tensor,
+                 penalty_weight=10.0):
+    assert x_real.shape[0] == x_fake.shape[0], "batch size must be constant"
+
+    loss_no_penalty = disc(x_fake) - disc(x_real)
+
+    n = x_real.shape[0]
+    eps = torch.rand((n,))
+    x_rand = eps * x_real + (1 - eps) * x_fake
+
+    return loss_no_penalty + penalty_weight * compute_gradient_penalty(disc, x_rand)

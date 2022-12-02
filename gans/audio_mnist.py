@@ -12,7 +12,41 @@ from scipy.io.wavfile import read as read_wav, write as write_wav
 from functools import partial
 
 
-LATENT_DIM = 512
+def compute_gradient_penalty(disc: nn.Module, interpolates: torch.Tensor):
+    """Calculates the gradient penalty loss for WGAN GP
+    source: https://github.com/eriklindernoren/PyTorch-GAN/blob/a163b82beff3d01688d8315a3fd39080400e7c01/implementations/wgan_gp/wgan_gp.py"""
+    interpolates = interpolates.requires_grad_(True)
+    d_interpolates = disc(interpolates)
+    fake = torch.autograd.Variable(torch.ones_like(d_interpolates), requires_grad=False)
+    gradients = torch.autograd.grad(
+        outputs=d_interpolates,
+        inputs=interpolates,
+        grad_outputs=fake,
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True,
+    )[0]
+    gradients = gradients.view(gradients.size(0), -1)
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+    return gradient_penalty
+
+
+def wgan_loss_it(disc: nn.Module,
+                 x_real: torch.Tensor,
+                 x_fake: torch.Tensor,
+                 penalty_weight=10.0) -> torch.Tensor:
+    assert x_real.shape[0] == x_fake.shape[0], "batch size must be constant"
+
+    loss_no_penalty = disc(x_fake) - disc(x_real)
+
+    n = x_real.shape[0]
+    eps = torch.rand((n, 1, 1, 1))
+    x_rand = eps * x_real + (1 - eps) * x_fake
+
+    return loss_no_penalty + penalty_weight * compute_gradient_penalty(disc, x_rand)
+
+
+LATENT_DIM = 100
 IMAGE_SHAPE = (128, 128)
 
 
@@ -247,20 +281,17 @@ def train(path_to_zip: str,
             images = batch["audio"].float().to(device)
             images = spect_to_img(images)
 
-            z_mean = torch.zeros((len(images), LATENT_DIM)).float()
-            z = torch.normal(z_mean, z_mean + 1).to(device)
+            z = torch.rand((len(images), LATENT_DIM)) * 2 - 1
 
             # Discriminator training
             optimizer_D.zero_grad()
-            scores_real = D(images)
-            scores_fake = D(G(z))
-            loss_D = -(torch.log(scores_real + 1e-6) + torch.log(1 - scores_fake + 1e-6)).mean()
+            loss_D = wgan_loss_it(D, images, G(z)).mean()
             loss_D.backward()
             optimizer_D.step()
 
             # Generator training
             optimizer_G.zero_grad()
-            loss_EG = torch.log(1 - D(G(z)) + 1e-6).mean()
+            loss_EG = -D(G(z)).mean()
             loss_EG.backward()
             optimizer_G.step()
 
