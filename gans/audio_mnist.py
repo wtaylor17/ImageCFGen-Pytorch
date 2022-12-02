@@ -17,7 +17,10 @@ def compute_gradient_penalty(disc: nn.Module, interpolates: torch.Tensor):
     source: https://github.com/eriklindernoren/PyTorch-GAN/blob/a163b82beff3d01688d8315a3fd39080400e7c01/implementations/wgan_gp/wgan_gp.py"""
     interpolates = interpolates.requires_grad_(True)
     d_interpolates = disc(interpolates)
-    fake = torch.autograd.Variable(torch.ones_like(d_interpolates), requires_grad=False)
+    fake = torch.autograd.Variable(
+        torch.ones_like(d_interpolates).to(interpolates.device),
+        requires_grad=False
+    )
     gradients = torch.autograd.grad(
         outputs=d_interpolates,
         inputs=interpolates,
@@ -40,7 +43,7 @@ def wgan_loss_it(disc: nn.Module,
     loss_no_penalty = disc(x_fake) - disc(x_real)
 
     n = x_real.shape[0]
-    eps = torch.rand((n, 1, 1, 1))
+    eps = torch.rand((n, 1, 1, 1)).to(x_real.device)
     x_rand = eps * x_real + (1 - eps) * x_fake
 
     return loss_no_penalty + penalty_weight * compute_gradient_penalty(disc, x_rand)
@@ -281,7 +284,7 @@ def train(path_to_zip: str,
             images = batch["audio"].float().to(device)
             images = spect_to_img(images)
 
-            z = torch.rand((len(images), LATENT_DIM)) * 2 - 1
+            z = torch.rand((len(images), LATENT_DIM)).to(device) * 2 - 1
 
             # Discriminator training
             optimizer_D.zero_grad()
