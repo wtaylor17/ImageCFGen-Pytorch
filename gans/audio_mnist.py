@@ -321,8 +321,8 @@ def train(path_to_zip: str,
                 images = demo_batch["audio"].float().to(device)
                 x = spect_to_img(images)
 
-                z_mean = torch.zeros((len(x), LATENT_DIM)).float()
-                z = torch.normal(z_mean, z_mean + 1).to(device)
+                z = torch.rand((len(x), LATENT_DIM)) * 2 - 1
+                z = z.to(device)
 
                 gener = G(z).reshape(n_show, *IMAGE_SHAPE)
                 real = x.reshape((n_show, *IMAGE_SHAPE))
