@@ -242,7 +242,7 @@ def train(path_to_zip: str,
           image_output_path='',
           generator_size=32,
           discriminator_size=32,
-          d_updates_per_g_update=5):
+          g_updates_per_step=5):
     G = Generator(generator_size).to(device)
     D = Discriminator(discriminator_size).to(device)
 
@@ -276,12 +276,12 @@ def train(path_to_zip: str,
         return img_ * stds_kept * (spect_std + 1e-6) + spect_mean
 
     print('Beginning training')
+    ctr = 0
     for epoch in range(n_epochs):
         D_score = 0.
         EG_score = 0.
         D.train()
         G.train()
-        ctr = 0
         for i, batch in enumerate(tqdm(data.stream(batch_size=batch_size), total=n_batches)):
             images = batch["audio"].float().to(device)
             images = spect_to_img(images)
@@ -295,7 +295,8 @@ def train(path_to_zip: str,
             optimizer_D.step()
 
             # Generator training
-            if ctr % d_updates_per_g_update == 0:
+            for _ in range(g_updates_per_step):
+                z = torch.rand((len(images), LATENT_DIM)).to(device) * 2 - 1
                 optimizer_G.zero_grad()
                 loss_EG = -D(G(z)).mean()
                 loss_EG.backward()
