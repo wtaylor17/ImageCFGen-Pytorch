@@ -247,10 +247,10 @@ def train(path_to_zip: str,
 
     optimizer_G = torch.optim.Adam(G.parameters(),
                                    lr=l_rate,
-                                   betas=(0.9, 0.5))
+                                   betas=(0.5, 0.9))
     optimizer_D = torch.optim.Adam(D.parameters(),
                                    lr=l_rate,
-                                   betas=(0.9, 0.5))
+                                   betas=(0.5, 0.9))
 
     print('Loading dataset...')
     data = AudioMNISTData(path_to_zip, device=device)
