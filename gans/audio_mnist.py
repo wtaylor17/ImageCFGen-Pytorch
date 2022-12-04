@@ -261,12 +261,12 @@ def train(path_to_zip: str,
     print('Computing spectrogram statistics...')
     for batch in data.stream(batch_size=batch_size):
         n_batches += 1
-        spect_mean = spect_mean + batch["audio"].mean()
-        spect_ss = spect_ss + batch["audio"].square().mean()
+        spect_mean = spect_mean + batch["audio"].mean(dim=0)
+        spect_ss = spect_ss + batch["audio"].square().mean(dim=0)
 
-    spect_mean = (spect_mean / n_batches).float().to(device)
-    spect_ss = (spect_ss / n_batches).float().to(device)
-    spect_std = torch.sqrt(spect_ss - spect_mean)
+    spect_mean = (spect_mean / n_batches).float().to(device)  # E[X]
+    spect_ss = (spect_ss / n_batches).float().to(device)  # E[X^2]
+    spect_std = torch.sqrt(spect_ss - spect_mean.square())
     stds_kept = 3
 
     def spect_to_img(spect_):
