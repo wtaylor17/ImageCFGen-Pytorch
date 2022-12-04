@@ -261,8 +261,8 @@ def train(path_to_zip: str,
     print('Computing spectrogram statistics...')
     for batch in data.stream(batch_size=batch_size):
         n_batches += 1
-        spect_mean = spect_mean + batch["audio"].mean(dim=0)
-        spect_ss = spect_ss + batch["audio"].square().mean(dim=0)
+        spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1))
+        spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1))
 
     spect_mean = (spect_mean / n_batches).float().to(device)  # E[X]
     spect_ss = (spect_ss / n_batches).float().to(device)  # E[X^2]
@@ -283,7 +283,8 @@ def train(path_to_zip: str,
         EG_score = 0.
         D.train()
         G.train()
-        for i, batch in enumerate(tqdm(data.stream(batch_size=batch_size), total=n_batches)):
+        tq = tqdm(data.stream(batch_size=batch_size), total=n_batches)
+        for i, batch in enumerate(tq):
             images = batch["audio"].float().to(device)
             images = spect_to_img(images)
 
@@ -305,10 +306,11 @@ def train(path_to_zip: str,
             ctr += 1
 
             Gz = G(z).detach()
-            DG = D(Gz)
-            DE = D(images)
-            D_score += DG.mean().item()
-            EG_score += DE.mean().item()
+            DG = D(Gz).mean().item()
+            DE = D(images).mean().item()
+            D_score += DG
+            EG_score += DE
+            tq.set_postfix({"D(G(z))": round(DG, 4), "D(X)": round(DE, 4)})
 
         print(D_score / n_batches, EG_score / n_batches)
 
