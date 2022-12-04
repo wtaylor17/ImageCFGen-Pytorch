@@ -220,8 +220,7 @@ class Discriminator(nn.Module):
             nn.BatchNorm2d(16 * d),
             nn.LeakyReLU(0.2),
             nn.Flatten(),
-            nn.Linear(16 * d, 1),
-            nn.Sigmoid()
+            nn.Linear(16 * d, 1)
         )
 
     @property
@@ -242,14 +241,16 @@ def train(path_to_zip: str,
           image_output_path='',
           generator_size=32,
           discriminator_size=32,
-          g_updates_per_step=5):
+          d_updates_per_g_update=1):
     G = Generator(generator_size).to(device)
     D = Discriminator(discriminator_size).to(device)
 
     optimizer_G = torch.optim.Adam(G.parameters(),
-                                   lr=l_rate)
+                                   lr=l_rate,
+                                   betas=(0.9, 0.5))
     optimizer_D = torch.optim.Adam(D.parameters(),
-                                   lr=l_rate)
+                                   lr=l_rate,
+                                   betas=(0.9, 0.5))
 
     print('Loading dataset...')
     data = AudioMNISTData(path_to_zip, device=device)
@@ -295,7 +296,7 @@ def train(path_to_zip: str,
             optimizer_D.step()
 
             # Generator training
-            for _ in range(g_updates_per_step):
+            if ctr % d_updates_per_g_update == 0:
                 z = torch.rand((len(images), LATENT_DIM)).to(device) * 2 - 1
                 optimizer_G.zero_grad()
                 loss_EG = -D(G(z)).mean()
