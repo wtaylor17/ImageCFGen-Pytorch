@@ -177,16 +177,22 @@ class Generator(nn.Module):
                        padding=2,
                        output_padding=1)
         self.layers = nn.Sequential(
+            nn.BatchNorm1d(LATENT_DIM),
             nn.Linear(LATENT_DIM, 256 * d),
             nn.Unflatten(1, (16 * d, 4, 4)),
+            nn.BatchNorm2d(16 * d),
             nn.ReLU(),
             ct2d(16 * d, 8 * d, (5, 5)),
+            nn.BatchNorm2d(8 * d),
             nn.ReLU(),
             ct2d(8 * d, 4 * d, (5, 5)),
+            nn.BatchNorm2d(4 * d),
             nn.ReLU(),
             ct2d(4 * d, 2 * d, (5, 5)),
+            nn.BatchNorm2d(2 * d),
             nn.ReLU(),
             ct2d(2 * d, d, (5, 5)),
+            nn.BatchNorm2d(d),
             nn.ReLU(),
             ct2d(d, 1, (5, 5)),
             nn.Tanh()
