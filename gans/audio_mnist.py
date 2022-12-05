@@ -244,7 +244,11 @@ def train(path_to_zip: str,
           d_updates_per_g_update=1,
           loss_mode="gan"):
     G = Generator(generator_size).to(device)
-    D = Discriminator(discriminator_size).to(device)
+    D = Discriminator(discriminator_size)
+
+    if loss_mode == "gan":
+        D.layers.append(nn.Sigmoid())
+    D = D.to(device)
 
     optimizer_G = torch.optim.Adam(G.parameters(),
                                    lr=l_rate,
