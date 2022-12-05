@@ -12,6 +12,14 @@ from scipy.io.wavfile import read as read_wav, write as write_wav
 from functools import partial
 
 
+def init_weights(layer, std=0.001):
+    name = layer.__class__.__name__
+    if name.startswith('Conv'):
+        torch.nn.init.normal_(layer.weight, mean=0, std=std)
+        if layer.bias is not None:
+            torch.nn.init.constant_(layer.bias, 0)
+
+
 def compute_gradient_penalty(disc: nn.Module, interpolates: torch.Tensor):
     """Calculates the gradient penalty loss for WGAN GP
     source: https://github.com/eriklindernoren/PyTorch-GAN/blob/a163b82beff3d01688d8315a3fd39080400e7c01/implementations/wgan_gp/wgan_gp.py"""
@@ -177,23 +185,22 @@ class Generator(nn.Module):
                        padding=2,
                        output_padding=1)
         self.layers = nn.Sequential(
-            nn.BatchNorm1d(LATENT_DIM),
             nn.Linear(LATENT_DIM, 256 * d),
             nn.Unflatten(1, (16 * d, 4, 4)),
             nn.BatchNorm2d(16 * d),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             ct2d(16 * d, 8 * d, (5, 5)),
             nn.BatchNorm2d(8 * d),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             ct2d(8 * d, 4 * d, (5, 5)),
             nn.BatchNorm2d(4 * d),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             ct2d(4 * d, 2 * d, (5, 5)),
             nn.BatchNorm2d(2 * d),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             ct2d(2 * d, d, (5, 5)),
             nn.BatchNorm2d(d),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             ct2d(d, 1, (5, 5)),
             nn.Tanh()
         )
@@ -251,6 +258,9 @@ def train(path_to_zip: str,
           loss_mode="gan"):
     G = Generator(generator_size).to(device)
     D = Discriminator(discriminator_size)
+
+    G.apply(init_weights)
+    D.apply(init_weights)
 
     if loss_mode == "gan":
         D.layers.append(nn.Sigmoid())
