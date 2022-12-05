@@ -187,19 +187,14 @@ class Generator(nn.Module):
         self.layers = nn.Sequential(
             nn.Linear(LATENT_DIM, 256 * d),
             nn.Unflatten(1, (16 * d, 4, 4)),
-            nn.BatchNorm2d(16 * d),
             nn.LeakyReLU(0.2),
             ct2d(16 * d, 8 * d, (5, 5)),
-            nn.BatchNorm2d(8 * d),
             nn.LeakyReLU(0.2),
             ct2d(8 * d, 4 * d, (5, 5)),
-            nn.BatchNorm2d(4 * d),
             nn.LeakyReLU(0.2),
             ct2d(4 * d, 2 * d, (5, 5)),
-            nn.BatchNorm2d(2 * d),
             nn.LeakyReLU(0.2),
             ct2d(2 * d, d, (5, 5)),
-            nn.BatchNorm2d(d),
             nn.LeakyReLU(0.2),
             ct2d(d, 1, (5, 5)),
             nn.Tanh()
@@ -218,27 +213,17 @@ class Discriminator(nn.Module):
     def __init__(self, d=64):
         super(Discriminator, self).__init__()
         self.layers = nn.Sequential(
-            nn.Dropout2d(0.5),
             nn.Conv2d(1, d, (5, 5), (2, 2)),
             nn.LeakyReLU(0.2),
-            nn.Dropout2d(0.5),
             nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
-            nn.BatchNorm2d(2 * d),
             nn.LeakyReLU(0.2),
-            nn.Dropout2d(0.5),
             nn.Conv2d(2 * d, 4 * d, (5, 5), (2, 2)),
-            nn.BatchNorm2d(4 * d),
             nn.LeakyReLU(0.2),
-            nn.Dropout2d(0.5),
             nn.Conv2d(4 * d, 8 * d, (5, 5), (2, 2)),
-            nn.BatchNorm2d(8 * d),
             nn.LeakyReLU(0.2),
-            nn.Dropout2d(0.5),
             nn.Conv2d(8 * d, 16 * d, (5, 5), (2, 2)),
-            nn.BatchNorm2d(16 * d),
             nn.LeakyReLU(0.2),
             nn.Flatten(),
-            nn.Dropout1d(0.5),
             nn.Linear(16 * d, 1)
         )
 
@@ -255,31 +240,29 @@ def train(path_to_zip: str,
           n_epochs=200,
           l_rate=1e-4,
           device='cpu',
-          save_images_every=2,
-          batch_size=128,
+          save_images_every=1,
+          batch_size=64,
           image_output_path='',
-          generator_size=32,
-          discriminator_size=32,
+          generator_size=64,
+          discriminator_size=64,
           d_updates_per_g_update=1,
+          discriminator_weight_decay=0.0,
           loss_mode="gan"):
     G = Generator(generator_size).to(device)
-    D = Discriminator(discriminator_size)
+    D = Discriminator(discriminator_size).to(device)
 
     G.apply(init_weights)
     D.apply(init_weights)
-
-    if loss_mode == "gan":
-        D.layers.append(nn.Sigmoid())
-    D = D.to(device)
 
     optimizer_G = torch.optim.Adam(G.parameters(),
                                    lr=l_rate,
                                    betas=(0.5, 0.9))
     optimizer_D = torch.optim.Adam(D.parameters(),
                                    lr=l_rate,
-                                   betas=(0.5, 0.9))
+                                   betas=(0.5, 0.9),
+                                   weight_decay=discriminator_weight_decay)
 
-    gan_loss = nn.BCELoss()
+    gan_loss = nn.BCEWithLogitsLoss()
 
     print('Loading dataset...')
     data = AudioMNISTData(path_to_zip, device=device)
