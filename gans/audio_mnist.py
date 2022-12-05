@@ -263,6 +263,8 @@ def train(path_to_zip: str,
                                    lr=l_rate,
                                    betas=(0.5, 0.9))
 
+    gan_loss = nn.BCELoss()
+
     print('Loading dataset...')
     data = AudioMNISTData(path_to_zip, device=device)
     print('Done')
@@ -299,12 +301,36 @@ def train(path_to_zip: str,
             images = batch["audio"].float().to(device)
             images = spect_to_img(images)
 
-            z = torch.randn((len(images), LATENT_DIM)).to(device)
+            valid = torch.autograd.Variable(
+                torch.Tensor(images.size(0), 1).fill_(1.0),
+                requires_grad=False
+            )
+            fake = torch.autograd.Variable(
+                torch.Tensor(images.size(0), 1).fill_(0.0),
+                requires_grad=False
+            )
+
+            # Generator training
+            if ctr % d_updates_per_g_update == 0:
+                z = torch.randn((len(images), LATENT_DIM)).to(device)
+                optimizer_G.zero_grad()
+                if loss_mode == "gan":
+                    gen = G(z)
+                    loss_G = gan_loss(D(gen), valid)
+                elif loss_mode == "wgan":
+                    loss_G = -D(G(z)).mean()
+                else:
+                    raise NotImplementedError(loss_mode)
+                loss_G.backward()
+                optimizer_G.step()
+            ctr += 1
 
             # Discriminator training
             optimizer_D.zero_grad()
+            z = torch.randn((len(images), LATENT_DIM)).to(device)
             if loss_mode == "gan":
-                loss_D = -((D(images) + 1E-6).log() + (1 - D(G(z)) + 1E-6).log()).mean()
+                loss_D = gan_loss(D(images), valid)
+                loss_D = (loss_D + gan_loss(D(G(z)), fake)) / 2
             elif loss_mode == "wgan":
                 loss_D = wgan_loss_it(D, images, G(z)).mean()
             else:
@@ -312,20 +338,7 @@ def train(path_to_zip: str,
             loss_D.backward()
             optimizer_D.step()
 
-            # Generator training
-            if ctr % d_updates_per_g_update == 0:
-                z = torch.randn((len(images), LATENT_DIM)).to(device)
-                optimizer_G.zero_grad()
-                if loss_mode == "gan":
-                    loss_EG = -(D(G(z)) + 1E-6).log().mean()
-                elif loss_mode == "wgan":
-                    loss_EG = -D(G(z)).mean()
-                else:
-                    raise NotImplementedError(loss_mode)
-                loss_EG.backward()
-                optimizer_G.step()
-            ctr += 1
-
+            z = torch.randn((len(images), LATENT_DIM)).to(device)
             Gz = G(z).detach()
             DG = D(Gz).mean().item()
             DE = D(images).mean().item()
