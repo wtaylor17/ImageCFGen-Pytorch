@@ -339,10 +339,13 @@ def train(path_to_zip: str,
 
             z = torch.randn((len(images), LATENT_DIM)).to(device)
             Gz = G(z).detach()
-            DG = D(Gz).mean().item()
-            DE = D(images).mean().item()
-            D_score += DG
-            EG_score += DE
+            DG = D(Gz)
+            DE = D(images)
+            if loss_mode == "gan":
+                DG = DG.sigmoid()
+                DE = DE.sigmoid()
+            D_score += DG.mean().item()
+            EG_score += DE.mean().item()
             tq.set_postfix({"D(G(z))": round(DG, 4), "D(X)": round(DE, 4)})
 
         print(D_score / n_batches, EG_score / n_batches)
