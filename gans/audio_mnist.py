@@ -304,7 +304,7 @@ def train(path_to_zip: str,
             # Discriminator training
             optimizer_D.zero_grad()
             if loss_mode == "gan":
-                loss_D = -((D(x) + 1E-6).log() + (1 - D(G(z)) + 1E-6).log()).mean()
+                loss_D = -((D(images) + 1E-6).log() + (1 - D(G(z)) + 1E-6).log()).mean()
             elif loss_mode == "wgan":
                 loss_D = wgan_loss_it(D, images, G(z)).mean()
             else:
