@@ -218,21 +218,27 @@ class Discriminator(nn.Module):
     def __init__(self, d=64):
         super(Discriminator, self).__init__()
         self.layers = nn.Sequential(
+            nn.Dropout2d(0.5),
             nn.Conv2d(1, d, (5, 5), (2, 2)),
             nn.LeakyReLU(0.2),
+            nn.Dropout2d(0.5),
             nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
             nn.BatchNorm2d(2 * d),
             nn.LeakyReLU(0.2),
+            nn.Dropout2d(0.5),
             nn.Conv2d(2 * d, 4 * d, (5, 5), (2, 2)),
             nn.BatchNorm2d(4 * d),
             nn.LeakyReLU(0.2),
+            nn.Dropout2d(0.5),
             nn.Conv2d(4 * d, 8 * d, (5, 5), (2, 2)),
             nn.BatchNorm2d(8 * d),
             nn.LeakyReLU(0.2),
+            nn.Dropout2d(0.5),
             nn.Conv2d(8 * d, 16 * d, (5, 5), (2, 2)),
             nn.BatchNorm2d(16 * d),
             nn.LeakyReLU(0.2),
             nn.Flatten(),
+            nn.Dropout2d(0.5),
             nn.Linear(16 * d, 1)
         )
 
