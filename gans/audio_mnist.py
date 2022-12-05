@@ -241,7 +241,8 @@ def train(path_to_zip: str,
           image_output_path='',
           generator_size=32,
           discriminator_size=32,
-          d_updates_per_g_update=1):
+          d_updates_per_g_update=1,
+          loss_mode="gan"):
     G = Generator(generator_size).to(device)
     D = Discriminator(discriminator_size).to(device)
 
@@ -288,19 +289,29 @@ def train(path_to_zip: str,
             images = batch["audio"].float().to(device)
             images = spect_to_img(images)
 
-            z = torch.rand((len(images), LATENT_DIM)).to(device) * 2 - 1
+            z = torch.randn((len(images), LATENT_DIM)).to(device)
 
             # Discriminator training
             optimizer_D.zero_grad()
-            loss_D = wgan_loss_it(D, images, G(z)).mean()
+            if loss_mode == "gan":
+                loss_D = -((D(x) + 1E-6).log() + (1 - D(G(z)) + 1E-6).log()).mean()
+            elif loss_mode == "wgan":
+                loss_D = wgan_loss_it(D, images, G(z)).mean()
+            else:
+                raise NotImplementedError(loss_mode)
             loss_D.backward()
             optimizer_D.step()
 
             # Generator training
             if ctr % d_updates_per_g_update == 0:
-                z = torch.rand((len(images), LATENT_DIM)).to(device) * 2 - 1
+                z = torch.randn((len(images), LATENT_DIM)).to(device)
                 optimizer_G.zero_grad()
-                loss_EG = -D(G(z)).mean()
+                if loss_mode == "gan":
+                    loss_EG = -(D(G(z)) + 1E-6).log().mean()
+                elif loss_mode == "wgan":
+                    loss_EG = -D(G(z)).mean()
+                else:
+                    raise NotImplementedError(loss_mode)
                 loss_EG.backward()
                 optimizer_G.step()
             ctr += 1
@@ -325,7 +336,7 @@ def train(path_to_zip: str,
                 images = demo_batch["audio"].float().to(device)
                 x = spect_to_img(images)
 
-                z = torch.rand((len(x), LATENT_DIM)) * 2 - 1
+                z = torch.randn((len(x), LATENT_DIM))
                 z = z.to(device)
 
                 gener = G(z).reshape(n_show, *IMAGE_SHAPE)
