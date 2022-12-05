@@ -302,11 +302,11 @@ def train(path_to_zip: str,
             images = spect_to_img(images)
 
             valid = torch.autograd.Variable(
-                torch.Tensor(images.size(0), 1).fill_(1.0),
+                torch.Tensor(images.size(0), 1).fill_(1.0).to(device),
                 requires_grad=False
             )
             fake = torch.autograd.Variable(
-                torch.Tensor(images.size(0), 1).fill_(0.0),
+                torch.Tensor(images.size(0), 1).fill_(0.0).to(device),
                 requires_grad=False
             )
 
