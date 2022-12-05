@@ -346,7 +346,7 @@ def train(path_to_zip: str,
                 DE = DE.sigmoid()
             D_score += DG.mean().item()
             EG_score += DE.mean().item()
-            tq.set_postfix({"D(G(z))": round(DG, 4), "D(X)": round(DE, 4)})
+            tq.set_postfix({"D(G(z))": round(DG.mean().item(), 4), "D(X)": round(DE.mean().item(), 4)})
 
         print(D_score / n_batches, EG_score / n_batches)
 
