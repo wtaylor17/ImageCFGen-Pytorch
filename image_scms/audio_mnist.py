@@ -206,7 +206,7 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, d=8):
+    def __init__(self, d=64):
         super(Discriminator, self).__init__()
         c2d = partial(nn.Conv2d, stride=(2, 2), padding=1)
         self.dz = nn.Sequential(
