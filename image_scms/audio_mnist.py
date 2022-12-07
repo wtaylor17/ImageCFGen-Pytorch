@@ -255,8 +255,7 @@ def train(path_to_zip: str,
           device='cpu',
           save_images_every=2,
           batch_size=128,
-          image_output_path='',
-          mse_coef=0.0):
+          image_output_path=''):
     E = Encoder().to(device)
     G = Generator().to(device)
     D = Discriminator().to(device)
@@ -266,9 +265,9 @@ def train(path_to_zip: str,
     D.apply(init_weights)
 
     optimizer_E = torch.optim.Adam(list(E.parameters()) + list(G.parameters()),
-                                   lr=l_rate, betas=(0.5, 0.999))
+                                   lr=l_rate, betas=(0.5, 0.9))
     optimizer_D = torch.optim.Adam(D.parameters(),
-                                   lr=l_rate, betas=(0.5, 0.999))
+                                   lr=l_rate, betas=(0.5, 0.9))
 
     loss_calc = AdversariallyLearnedInference(E, G, D)
 
@@ -281,27 +280,20 @@ def train(path_to_zip: str,
     print('Computing spectrogram statistics...')
     for batch in data.stream(batch_size=batch_size):
         n_batches += 1
-        spect_mean = spect_mean + batch["audio"].mean()
-        spect_ss = spect_ss + batch["audio"].square().mean()
+        spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1))
+        spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1))
 
-    spect_mean = (spect_mean / n_batches).float().to(device)
-    spect_ss = (spect_ss / n_batches).float().to(device)
-    spect_std = torch.sqrt(spect_ss - spect_mean)
-
-    spect_min, spect_max = float('inf'), float(0)
-    for batch in data.stream(batch_size=batch_size):
-        audio = (batch["audio"] - spect_mean) / spect_std
-        spect_min = min(spect_min, audio.min().item())
-        spect_max = max(spect_max, audio.max().item())
-    print('Done.')
+    spect_mean = (spect_mean / n_batches).float().to(device)  # E[X]
+    spect_ss = (spect_ss / n_batches).float().to(device)  # E[X^2]
+    spect_std = torch.sqrt(spect_ss - spect_mean.square())
+    stds_kept = 3
 
     def spect_to_img(spect_):
         spect_ = (spect_ - spect_mean) / (spect_std + 1e-6)
-        return (spect_ - spect_min) / (spect_max - spect_min)
+        return torch.clip(spect_, -stds_kept, stds_kept) / float(stds_kept)
 
     def img_to_spect(img_):
-        img_ = img_ * (spect_max - spect_min) + spect_min
-        return img_ * (spect_std + 1e-6) + spect_mean
+        return img_ * stds_kept * (spect_std + 1e-6) + spect_mean
 
     attr_cols = [k for k in data.data if k != "audio"]
     print('Beginning training')
@@ -331,19 +323,14 @@ def train(path_to_zip: str,
 
             # Encoder & Generator training
             optimizer_E.zero_grad()
-            EX = E(images, c)
-            DEX = G(EX, c)
             loss_EG = loss_calc.generator_loss(
                 images, z, c
             )
-            if mse_coef > 0:
-                mse = torch.square(images - DEX).mean()
-                loss_EG = loss_EG + mse_coef * mse
             loss_EG.backward()
             optimizer_E.step()
 
             Gz = G(z, c).detach()
-            EX = EX.detach()
+            EX = E(images, c).detach()
             DG = D(Gz, z, c)
             DE = D(images, EX, c)
             D_score += DG.mean().item()
