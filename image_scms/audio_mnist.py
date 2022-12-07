@@ -233,7 +233,8 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2),
             nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2),
-            nn.Conv2d(1024, 1, (1, 1), (1, 1))
+            nn.Conv2d(1024, 1, (1, 1), (1, 1)),
+            nn.Sigmoid()
         )
 
     @property
