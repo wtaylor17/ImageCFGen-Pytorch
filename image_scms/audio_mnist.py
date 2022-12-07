@@ -11,14 +11,21 @@ import librosa
 from scipy.io.wavfile import read as read_wav, write as write_wav
 from functools import partial
 
-from .training_utils import (init_weights,
-                             AdversariallyLearnedInference,
-                             attributes_image,
-                             binarized_attribute_channel)
+from .training_utils import (AdversariallyLearnedInference,
+                             attributes_image)
 
 
 LATENT_DIM = 512
+ATTRIBUTE_COUNT = 47
 IMAGE_SHAPE = (128, 128)
+
+
+def init_weights(layer, std=0.001):
+    name = layer.__class__.__name__
+    if name.startswith('Conv'):
+        torch.nn.init.normal_(layer.weight, mean=0, std=std)
+        if layer.bias is not None:
+            torch.nn.init.constant_(layer.bias, 0)
 
 
 class AudioMNISTData:
@@ -138,30 +145,21 @@ class AudioMNISTData:
 
 
 class Encoder(nn.Module):
-    def __init__(self, d=32):
+    def __init__(self, d=64):
         super(Encoder, self).__init__()
-        c2d = partial(nn.Conv2d, stride=(2, 2))
+        c2d = partial(nn.Conv2d, stride=(2, 2), padding=1)
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(2),
-            c2d(2, d, (3, 3)),
-            nn.ReLU(),
-            nn.BatchNorm2d(d),
-            c2d(d, 2 * d, (3, 3)),
-            nn.ReLU(),
-            nn.BatchNorm2d(2 * d),
-            c2d(2 * d, 4 * d, (3, 3)),
-            nn.ReLU(),
-            nn.BatchNorm2d(4 * d),
-            c2d(4 * d, 8 * d, (3, 3)),
-            nn.ReLU(),
-            nn.BatchNorm2d(8 * d),
-            c2d(8 * d, 16 * d, (3, 3)),
-            nn.ReLU(),
-            nn.BatchNorm2d(16 * d),
-            c2d(16 * d, 32 * d, (3, 3)),
-            nn.ReLU(),
-            nn.BatchNorm2d(32 * d),
-            nn.Conv2d(32 * d, LATENT_DIM, (1, 1)),
+            c2d(2, d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(d, 2 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(2 * d, 4 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(4 * d, 8 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(8 * d, 16 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(16 * d, LATENT_DIM, (5, 5))
         )
 
     @property
@@ -170,86 +168,72 @@ class Encoder(nn.Module):
 
     def forward(self, X, a):
         attrs = torch.concat(a, dim=1)
+        X = X.reshape((-1, 1, *IMAGE_SHAPE))
         return self.layers(attributes_image(X, attrs, self.device))
 
 
 class Generator(nn.Module):
-    def __init__(self, d=32):
+    def __init__(self, d=64):
         super(Generator, self).__init__()
         ct2d = partial(nn.ConvTranspose2d,
-                       stride=(2, 2))
+                       stride=2,
+                       padding=2,
+                       output_padding=1)
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(LATENT_DIM + 47),
-            ct2d(LATENT_DIM + 47, 16 * d, (3, 3)),
-            nn.ReLU(),
-            nn.BatchNorm2d(16 * d),
-            ct2d(16 * d, 8 * d, (3, 3)),
-            nn.ReLU(),
-            nn.BatchNorm2d(8 * d),
-            ct2d(8 * d, 4 * d, (3, 3)),
-            nn.ReLU(),
-            nn.BatchNorm2d(4 * d),
-            ct2d(4 * d, 2 * d, (3, 3)),
-            nn.ReLU(),
-            nn.BatchNorm2d(2 * d),
-            ct2d(2 * d, d, (3, 3), output_padding=(1, 1)),
-            nn.ReLU(),
-            nn.BatchNorm2d(d),
-            ct2d(d, 1, (2, 2)),
-            nn.Sigmoid()
+            nn.Linear(LATENT_DIM + 47, 256 * d),
+            nn.Unflatten(1, (16 * d, 4, 4)),
+            nn.LeakyReLU(0.2),
+            ct2d(16 * d, 8 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            ct2d(8 * d, 4 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            ct2d(4 * d, 2 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            ct2d(2 * d, d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            ct2d(d, 1, (5, 5)),
+            nn.Tanh()
         )
 
     @property
     def device(self):
         return next(self.parameters()).device
 
-    def forward(self, z, a):
+    def forward(self, z: torch.Tensor, a):
+        z = z.reshape((-1, LATENT_DIM))
         attrs = torch.concat(a, dim=1)
-        z_a = torch.concat([
-            z, attrs.reshape((-1, attrs.shape[1], 1, 1))
-        ], dim=1)
-        return self.layers(z_a)
+        return self.layers(torch.concat([z, attrs], dim=1))
 
 
 class Discriminator(nn.Module):
     def __init__(self, d=8):
         super(Discriminator, self).__init__()
+        c2d = partial(nn.Conv2d, stride=(2, 2), padding=1)
         self.dz = nn.Sequential(
-            nn.Dropout2d(0.5),
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Dropout2d(0.5),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.1)
+            nn.LeakyReLU(0.2)
         )
         self.dx = nn.Sequential(
-            nn.BatchNorm2d(2),
-            nn.Dropout2d(0.5),
-            nn.Conv2d(2, d, (5, 5), (2, 2)),
-            nn.ReLU(),
-            nn.BatchNorm2d(d),
-            nn.Dropout2d(0.5),
-            nn.Conv2d(d, 2 * d, (5, 5), (2, 2)),
-            nn.ReLU(),
-            nn.BatchNorm2d(2 * d),
-            nn.Dropout2d(0.5),
-            nn.Conv2d(2 * d, 4 * d, (5, 5), (2, 2)),
-            nn.ReLU(),
-            nn.BatchNorm2d(4 * d),
-            nn.Dropout2d(0.5),
-            nn.Conv2d(4 * d, 8 * d, (5, 5), (2, 2)),
-            nn.ReLU(),
-            nn.BatchNorm2d(8 * d),
-            nn.Dropout2d(0.5),
-            nn.Conv2d(8 * d, LATENT_DIM, (5, 5), (2, 2)),
+            c2d(2, d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(d, 2 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(2 * d, 4 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(4 * d, 8 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(8 * d, 16 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(16 * d, LATENT_DIM, (5, 5))
         )
         self.dxz = nn.Sequential(
             nn.Conv2d(2 * LATENT_DIM, 1024, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.1),
+            nn.LeakyReLU(0.2),
             nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.Conv2d(1024, 1, (1, 1), (1, 1)),
-            nn.Sigmoid()
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(1024, 1, (1, 1), (1, 1))
         )
 
     @property
@@ -257,6 +241,8 @@ class Discriminator(nn.Module):
         return next(self.parameters()).device
 
     def forward(self, X, z, a):
+        X = X.reshape((-1, 1, *IMAGE_SHAPE))
+        z = z.reshape((-1, LATENT_DIM, 1, 1))
         attrs = torch.concat(a, dim=1)
         dx = self.dx(attributes_image(X, attrs, self.device))
         dz = self.dz(z)

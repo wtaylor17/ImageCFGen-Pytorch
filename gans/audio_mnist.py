@@ -178,7 +178,7 @@ class AudioMNISTData:
 
 
 class Generator(nn.Module):
-    def __init__(self, d=32):
+    def __init__(self, d=64):
         super(Generator, self).__init__()
         ct2d = partial(nn.ConvTranspose2d,
                        stride=2,

@@ -1,19 +1,20 @@
-# from image_scms.audio_mnist import *
-from gans.audio_mnist import *
+from image_scms.audio_mnist import *
 
 if __name__ == "__main__":
     spec = torch.zeros((10, *IMAGE_SHAPE))
     latent = torch.randn((10, LATENT_DIM))
+    attrs = torch.randn((10, ATTRIBUTE_COUNT))
+    enc = Encoder()
     dec = Generator()
     disc = Discriminator()
 
-    rec = dec(latent)
-    print(f'G(z) shape is {rec.shape}')
+    codes = enc(spec, [attrs])
+    print(f'E(x,c) shape is {codes.shape}')
+    rec = dec(codes, [attrs])
+    print(f'G(E(x,c),c) shape is {rec.shape}')
 
-    scores = disc(spec)
-    print(f'D(x) shape is {scores.shape}')
-    scores = disc(dec(latent))
-    print(f'D(G(z)) shape is {scores.shape}')
+    gen = dec(latent, [attrs])
+    print(f'G(z,c) shape is {gen.shape}')
 
-    loss = wgan_loss_it(disc, spec, spec)
-    print(f'WGAN-GP loss is {loss.shape}')
+    scores = disc(spec, codes, [attrs])
+    print(f'D(x,z,c) shape is {scores.shape}')
