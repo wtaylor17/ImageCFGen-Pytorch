@@ -274,7 +274,8 @@ def train(path_to_zip: str,
           device='cpu',
           save_images_every=2,
           batch_size=128,
-          image_output_path=''):
+          image_output_path='',
+          discriminator_weight_decay=0.0):
     E = Encoder().to(device)
     G = Generator().to(device)
     D = Discriminator().to(device)
@@ -286,7 +287,8 @@ def train(path_to_zip: str,
     optimizer_E = torch.optim.Adam(list(E.parameters()) + list(G.parameters()),
                                    lr=l_rate, betas=(0.5, 0.9))
     optimizer_D = torch.optim.Adam(D.parameters(),
-                                   lr=l_rate, betas=(0.5, 0.9))
+                                   lr=l_rate, betas=(0.5, 0.9),
+                                   weight_decay=discriminator_weight_decay)
 
     loss_calc = AdversariallyLearnedInference(E, G, D)
 
