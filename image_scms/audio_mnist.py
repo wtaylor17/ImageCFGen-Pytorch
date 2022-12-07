@@ -149,16 +149,22 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         c2d = partial(nn.Conv2d, stride=(2, 2), padding=1)
         self.layers = nn.Sequential(
+            nn.BatchNorm2d(2),
             c2d(2, d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(d),
             c2d(d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(2 * d),
             c2d(2 * d, 4 * d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(4 * d),
             c2d(4 * d, 8 * d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(8 * d),
             c2d(8 * d, 16 * d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(16 * d),
             c2d(16 * d, LATENT_DIM, (5, 5))
         )
 
@@ -180,17 +186,23 @@ class Generator(nn.Module):
                        padding=2,
                        output_padding=1)
         self.layers = nn.Sequential(
+            nn.BatchNorm1d(LATENT_DIM + 47),
             nn.Linear(LATENT_DIM + 47, 256 * d),
             nn.Unflatten(1, (16 * d, 4, 4)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(16 * d),
             ct2d(16 * d, 8 * d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(8 * d),
             ct2d(8 * d, 4 * d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(4 * d),
             ct2d(4 * d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(2 * d),
             ct2d(2 * d, d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(d),
             ct2d(d, 1, (5, 5)),
             nn.Tanh()
         )
@@ -216,16 +228,22 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2)
         )
         self.dx = nn.Sequential(
+            nn.BatchNorm2d(2),
             c2d(2, d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(d),
             c2d(d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(2 * d),
             c2d(2 * d, 4 * d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(4 * d),
             c2d(4 * d, 8 * d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(8 * d),
             c2d(8 * d, 16 * d, (5, 5)),
             nn.LeakyReLU(0.2),
+            nn.BatchNorm2d(16 * d),
             c2d(16 * d, LATENT_DIM, (5, 5))
         )
         self.dxz = nn.Sequential(
