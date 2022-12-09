@@ -11,8 +11,7 @@ import librosa
 from scipy.io.wavfile import read as read_wav, write as write_wav
 from functools import partial
 
-from .training_utils import (AdversariallyLearnedInference,
-                             attributes_image)
+from .training_utils import AdversariallyLearnedInference
 
 
 LATENT_DIM = 512
@@ -148,23 +147,28 @@ class Encoder(nn.Module):
     def __init__(self, d=64):
         super(Encoder, self).__init__()
         c2d = partial(nn.Conv2d, stride=(2, 2), padding=1)
+        self.embedding = nn.Sequential(
+            nn.Linear(47, 128*128),
+            nn.Tanh(),
+            nn.Unflatten(1, (1, 128, 128))
+        )
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(2),
+            # nn.BatchNorm2d(2),
             c2d(2, d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(d),
+            # nn.BatchNorm2d(d),
             c2d(d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(2 * d),
+            # nn.BatchNorm2d(2 * d),
             c2d(2 * d, 4 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(4 * d),
+            # nn.BatchNorm2d(4 * d),
             c2d(4 * d, 8 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(8 * d),
+            # nn.BatchNorm2d(8 * d),
             c2d(8 * d, 16 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(16 * d),
+            # nn.BatchNorm2d(16 * d),
             c2d(16 * d, LATENT_DIM, (5, 5))
         )
 
@@ -174,8 +178,9 @@ class Encoder(nn.Module):
 
     def forward(self, X, a):
         attrs = torch.concat(a, dim=1)
+        embedding = self.embedding(attrs)
         X = X.reshape((-1, 1, *IMAGE_SHAPE))
-        return self.layers(attributes_image(X, attrs, self.device))
+        return self.layers(torch.concat([X, embedding], dim=1))
 
 
 class Generator(nn.Module):
@@ -227,6 +232,11 @@ class Discriminator(nn.Module):
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2)
         )
+        self.embedding = nn.Sequential(
+            nn.Linear(47, 128*128),
+            nn.Tanh(),
+            nn.Unflatten(1, (1, 128, 128))
+        )
         self.dx = nn.Sequential(
             nn.BatchNorm2d(2),
             c2d(2, d, (5, 5)),
@@ -263,7 +273,8 @@ class Discriminator(nn.Module):
         X = X.reshape((-1, 1, *IMAGE_SHAPE))
         z = z.reshape((-1, LATENT_DIM, 1, 1))
         attrs = torch.concat(a, dim=1)
-        dx = self.dx(attributes_image(X, attrs, self.device))
+        embedding = self.embedding(attrs)
+        dx = self.dx(torch.concat([X, embedding], dim=1))
         dz = self.dz(z)
         return self.dxz(torch.concat([dx, dz], dim=1)).reshape((-1, 1))
 

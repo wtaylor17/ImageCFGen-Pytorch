@@ -46,7 +46,7 @@ class ConditionalCategorical(dist.ConditionalDistribution):
         noise_l = -torch.log(torch.exp(-g - logits) +
                              torch.exp(-gk - logits[inds, y])) - logits
         noise_l[inds, y] = noise_k
-        return y
+        return noise_l
 
     def counterfactual(self, y, original_context, cf_context, mc_rounds=1, device="cpu"):
         cf_logits = mc_rounds * self.model(*cf_context)
