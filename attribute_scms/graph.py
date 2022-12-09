@@ -1,16 +1,20 @@
-from typing import Dict, List
+from typing import Dict, List, Union, Optional
 
 from collections import defaultdict
-from .causal_module import CausalModuleBase, ConditionalTransformedCM, ConditionalCategoricalCM
+import torch
+from .causal_module import CausalModuleBase, ConditionalTransformedCM, TransformedCM
 
 
 class CausalModuleGraph:
     def __init__(self):
-        self.modules: Dict[str, CausalModuleBase | ConditionalTransformedCM] = {}
+        self.modules: Dict[str, Union[CausalModuleBase, ConditionalTransformedCM]] = {}
         self.adj = defaultdict(set)
         self.adj_rev = defaultdict(set)
 
-    def add_module(self, key: str, module: CausalModuleBase):
+    def get_module(self, key: str) -> Union[CausalModuleBase, ConditionalTransformedCM]:
+        return self.modules.get(key)
+
+    def add_module(self, key: str, module: Union[CausalModuleBase, ConditionalTransformedCM]):
         self.modules[key] = module
 
     def assert_has_module(self, key):
@@ -38,9 +42,12 @@ class CausalModuleGraph:
 
     def top_sort(self):
         copy = CausalModuleGraph()
-        copy.modules = self.modules.copy()
-        copy.adj = self.adj.copy()
-        copy.adj_rev = self.adj_rev.copy()
+        copy.modules = dict(**self.modules)
+        copy.adj = defaultdict(set)
+        copy.adj_rev = defaultdict(set)
+        for v in self.adj:
+            for u in self.adj[v]:
+                copy.add_edge(v, u)
 
         out = []
         sources = {
@@ -58,22 +65,17 @@ class CausalModuleGraph:
 
         return out
 
-    def top_sort_modules(self):
-        return [
-            (v, self.modules[v],
-             [self.modules[p] for p in self.parents(v)])
-            for v in self.top_sort()
-        ]
-
-    def recover_noise(self, obs: dict):
+    def recover_noise(self, obs: Dict[str, torch.Tensor]):
         noise_out = {}
-        for v in self.top_sort():
+        for v in self.modules:
             if v in obs:
                 v_parents = self.parents(v)
                 if all(u in obs for u in v_parents):
                     self_val = obs[v]
                     parent_vals = [obs[u] for u in v_parents]
-                    if type(self.modules[v]) is CausalModuleBase:
+                    if len(parent_vals) > 0:
+                        parent_vals = torch.concat(parent_vals, dim=-1)
+                    if isinstance(self.modules[v], CausalModuleBase):
                         module: CausalModuleBase = self.modules[v]
                         noise_out[v] = module.recover_noise(self_val, parent_vals)
                     else:
@@ -82,3 +84,42 @@ class CausalModuleGraph:
                                              .recover_noise(self_val, parent_vals)
 
         return noise_out
+
+    def log_prob(self, obs: Dict[str, torch.Tensor]):
+        lp_out = {}
+        for v in self.modules:
+            if v in obs:
+                v_parents = self.parents(v)
+                if all(u in obs for u in v_parents):
+                    self_val = obs[v]
+                    parent_vals = [obs[u] for u in v_parents]
+                    if len(parent_vals) > 0:
+                        parent_vals = torch.concat(parent_vals, dim=-1)
+                    if isinstance(self.modules[v], CausalModuleBase):
+                        module: CausalModuleBase = self.modules[v]
+                        lp_out[v] = module.forward(parent_vals).log_prob(self_val)
+                    else:
+                        module: ConditionalTransformedCM = self.modules[v]
+                        lp_out[v] = module.condition(parent_vals)\
+                                          .forward(parent_vals).log_prob(self_val)
+        return lp_out
+
+    def sample(self,
+               obs_in: Optional[Dict[str, torch.Tensor]] = None,
+               n: int = 1) -> Dict[str, torch.Tensor]:
+        obs_out = obs_in or {}
+        for v in self.modules:
+            if v in obs_out:  # this value is being held constant
+                continue
+            v_parents = self.parents(v)
+            parent_vals = [obs_out[u] for u in v_parents]
+            if len(parent_vals) > 0:
+                parent_vals = torch.concat(parent_vals, dim=-1)
+            if isinstance(self.modules[v], CausalModuleBase):
+                module: CausalModuleBase = self.modules[v]
+                obs_out[v] = module.condition(parent_vals).sample((n,))
+            else:
+                module: ConditionalTransformedCM = self.modules[v]
+                obs_out[v] = module.condition(parent_vals) \
+                                   .condition(parent_vals).sample((n,))
+        return obs_out

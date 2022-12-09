@@ -1,15 +1,13 @@
 import torch
-import numpy as np
 import pyro.distributions as dist
 import pyro.distributions.transforms as T
-from torch.distributions import TransformedDistribution as TorchTD
 from abc import abstractmethod
+from typing import Iterator
 
-from .training_utils import nf_inverse
+from .training_utils import nf_inverse, nf_forward
 
 
-class TransformedDistribution(dist.TorchDistributionMixin, TorchTD):
-    pass
+TransformedDistribution = dist.TransformedDistribution
 
 
 class CausalModuleBase(torch.nn.Module):
@@ -25,7 +23,15 @@ class CausalModuleBase(torch.nn.Module):
 
     # meant to compute p(obs|context)
     @abstractmethod
-    def forward(self, *args, **kwargs) -> dist.Distribution:
+    def condition(self, context, **kwargs) -> dist.Distribution:
+        raise NotImplementedError
+
+    @abstractmethod
+    def parameters(self, recurse: bool = True) -> Iterator[torch.nn.Parameter]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def generate(self, context, noise, **kwargs) -> torch.Tensor:
         raise NotImplementedError
 
 
@@ -41,8 +47,20 @@ class TransformedCM(CausalModuleBase):
         noise_val = nf_inverse(self.td, obs)
         return noise_val
 
-    def forward(self, *args, **kwargs) -> dist.Distribution:
+    def condition(self, context, **kwargs) -> dist.Distribution:
         return self.td
+
+    def parameters(self, recurse: bool = True) -> Iterator[torch.nn.Parameter]:
+        return sum([list(t.parameters()) for t in self.td.transforms
+                    if hasattr(t, 'parameters')], [])
+
+    def clear_cache(self):
+        for t in self.td.transforms:
+            if hasattr(t, "clear_cache"):
+                t.clear_cache()
+
+    def generate(self, context, noise, **kwargs) -> torch.Tensor:
+        return nf_forward(self.td, noise)
 
 
 class CategoricalCM(CausalModuleBase):
@@ -54,10 +72,16 @@ class CategoricalCM(CausalModuleBase):
         return self.d
 
     def recover_noise(self, obs, context, **kwargs) -> torch.Tensor:
-        return x
+        return obs
 
-    def forward(self, *args, **kwargs) -> dist.Distribution:
+    def condition(self, context, **kwargs) -> dist.Distribution:
         return self.d
+
+    def parameters(self, recurse: bool = True) -> Iterator[torch.nn.Parameter]:
+        return []
+
+    def generate(self, context, noise, **kwargs) -> torch.Tensor:
+        return noise
 
 
 class ConditionalTransformedCM:
@@ -66,6 +90,15 @@ class ConditionalTransformedCM:
 
     def condition(self, context) -> TransformedCM:
         return TransformedCM(self.ctd.condition(context))
+
+    def parameters(self):
+        return sum([list(t.parameters()) for t in self.ctd.transforms
+                    if hasattr(t, 'parameters')], [])
+
+    def clear_cache(self):
+        for t in self.ctd.transforms:
+            if hasattr(t, "clear_cache"):
+                t.clear_cache()
 
 
 def gumbel_distribution() -> TransformedDistribution:
@@ -99,6 +132,13 @@ class ConditionalCategoricalCM(CausalModuleBase):
         noise_l[inds, y] = noise_k
         return noise_l
 
-    def forward(self, context, **kwargs) -> dist.Distribution:
+    def condition(self, context, **kwargs) -> dist.Distribution:
         logits = self.model(context)
         return dist.Categorical(logits=logits)
+
+    def parameters(self, recurse: bool = True) -> Iterator[torch.nn.Parameter]:
+        return self.model.parameters()
+
+    def generate(self, context, noise, **kwargs) -> torch.Tensor:
+        logits = self.model(context)
+        return (logits + noise).argmax(dim=1)

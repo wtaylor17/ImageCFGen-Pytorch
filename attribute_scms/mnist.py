@@ -3,60 +3,50 @@ import numpy as np
 import pyro.distributions as dist
 import pyro.distributions.transforms as T
 from tqdm import tqdm
-
+from .causal_module import (CausalModuleBase,
+                            ConditionalTransformedCM,
+                            TransformedCM,
+                            TransformedDistribution,
+                            CategoricalCM)
+from .graph import CausalModuleGraph
 from .training_utils import batchify, dist_parameters
 
 
-def thickness_distribution(device='cpu'):
-    t_base = dist.Normal(torch.zeros(1).to(device), torch.ones(1).to(device))
-    transforms = [T.BatchNorm(1).to(device),
-                  T.ExpTransform()]
-    return dist.TransformedDistribution(t_base, transforms)
+class MNISTCausalGraph(CausalModuleGraph):
+    def __init__(self,
+                 a_train: torch.Tensor,
+                 intensity_idx=11,
+                 slant_idx=12,
+                 device="cpu"):
+        super().__init__()
+        t_base = dist.Normal(torch.zeros(1).to(device), torch.ones(1).to(device))
+        transforms = [T.BatchNorm(1).to(device),
+                      T.ExpTransform()]
+        t_dist = TransformedDistribution(t_base, transforms)
 
+        intensity = a_train[:, intensity_idx]
+        i_min, i_max = intensity.min(), intensity.max()
+        i_base = dist.Normal(torch.zeros(1).to(device), torch.ones(1).to(device))
+        transforms = [T.conditional_affine_autoregressive(1, 1).to(device),
+                      T.SigmoidTransform(),
+                      T.AffineTransform(i_min, i_max - i_min)]
+        i_dist = dist.ConditionalTransformedDistribution(i_base, transforms)
 
-def intensity_distribution(min_, max_, device='cpu'):
-    i_base = dist.Normal(torch.zeros(1).to(device), torch.ones(1).to(device))
-    transforms = [T.conditional_affine_autoregressive(1, 1).to(device),
-                  T.SigmoidTransform(),
-                  T.AffineTransform(min_, max_ - min_)]
-    return dist.ConditionalTransformedDistribution(i_base, transforms)
+        slant = a_train[:, slant_idx]
+        s_min, s_max = slant.min(), slant.max()
+        s_base = dist.Normal(torch.zeros(1).to(device), torch.ones(1).to(device))
+        transforms = [T.Spline(1).to(device),
+                      T.AffineTransform(s_min, s_max - s_min)]
+        s_dist = TransformedDistribution(s_base, transforms)
 
+        y_vals, y_counts = torch.unique(a_train[:, :10].argmax(dim=1), return_counts=True)
+        label_dist = dist.Categorical(probs=torch.Tensor(y_counts / a_train.size(0)).to(device))
 
-def slant_distribution(min_, max_, device='cpu'):
-    s_base = dist.Normal(torch.zeros(1).to(device), torch.ones(1).to(device))
-    transforms = [T.Spline(1).to(device),
-                  T.AffineTransform(min_, max_ - min_)]
-    return dist.TransformedDistribution(s_base, transforms)
-
-
-def label_distribution(a_train: torch.Tensor,
-                       device='cpu'):
-    a_train = a_train.to(device)
-    torch.unique()
-    y_vals, y_counts = torch.unique(a_train[:, :10].argmax(dim=1), return_counts=True)
-    # this doesn't need gradient training, get MLE like this
-    return dist.Categorical(probs=torch.Tensor(y_counts / a_train.size(0)).to(device))
-
-
-def init_all_distributions(a_train: torch.Tensor,
-                           intensity_idx=11,
-                           slant_idx=12,
-                           device='cpu'):
-    a_train = a_train.to(device)
-
-    t_dist = thickness_distribution(device)
-
-    intensity = a_train[:, intensity_idx]
-    i_min, i_max = intensity.min(), intensity.max()
-    i_dist = intensity_distribution(i_min, i_max, device)
-
-    slant = a_train[:, slant_idx]
-    s_min, s_max = slant.min(), slant.max()
-    s_dist = slant_distribution(s_min, s_max, device)
-
-    l_dist = label_distribution(a_train, device)
-
-    return t_dist, i_dist, s_dist, l_dist
+        self.add_module("thickness", TransformedCM(t_dist))
+        self.add_module("intensity", ConditionalTransformedCM(i_dist))
+        self.add_module("slant", TransformedCM(s_dist))
+        self.add_module("label", CategoricalCM(label_dist))
+        self.add_edge("thickness", "intensity")
 
 
 def train(a_train: torch.Tensor,
@@ -65,21 +55,19 @@ def train(a_train: torch.Tensor,
           intensity_idx=11,
           slant_idx=12,
           device='cpu'):
-    t_dist, i_given_t_dist, s_dist, l_dist = init_all_distributions(
-        a_train,
-        intensity_idx=intensity_idx,
-        slant_idx=slant_idx,
-        device=device
-    )
+    causal_graph = MNISTCausalGraph(a_train,
+                                    intensity_idx=intensity_idx,
+                                    slant_idx=slant_idx,
+                                    device=device)
 
-    optimizer = torch.optim.Adam(dist_parameters(t_dist) +
-                                 dist_parameters(i_given_t_dist) +
-                                 dist_parameters(s_dist),
-                                 lr=1e-2)
+    params = list(causal_graph.get_module("thickness").parameters()) + \
+        list(causal_graph.get_module("intensity").parameters()) + \
+        list(causal_graph.get_module("slant").parameters())
+    optimizer = torch.optim.Adam(params, lr=1e-2)
 
-    thickness = a_train[:, thickness_idx]
-    intensity = a_train[:, intensity_idx]
-    slant = a_train[:, slant_idx]
+    thickness = a_train[:, thickness_idx:thickness_idx+1]
+    intensity = a_train[:, intensity_idx:intensity_idx+1]
+    slant = a_train[:, slant_idx:slant_idx+1]
 
     tq = tqdm(range(steps))
     for _ in tq:
@@ -90,24 +78,19 @@ def train(a_train: torch.Tensor,
         epoch_loss = 0
         for t, i, s in batches:
             optimizer.zero_grad()
-            loss = -(t_dist.log_prob(t) +
-                     i_given_t_dist.condition(t).log_prob(i) +
-                     s_dist.log_prob(s)).mean()
+            obs = {
+                "thickness": t,
+                "intensity": i,
+                "slant": s
+            }
+            lp = causal_graph.log_prob(obs)
+            loss = -(lp["thickness"] + lp["intensity"] + lp["slant"]).mean()
             loss.backward()
             optimizer.step()
-            t_dist.clear_cache()
-            i_given_t_dist.clear_cache()
-            s_dist.clear_cache()
+            causal_graph.get_module("thickness").clear_cache()
+            causal_graph.get_module("intensity").clear_cache()
+            causal_graph.get_module("slant").clear_cache()
             epoch_loss += loss.item()
         tq.set_description(f'loss = {round(epoch_loss / len(batches), 4)}')
 
-    return t_dist, i_given_t_dist, s_dist, l_dist, optimizer
-
-
-def load_model(tar_path, device='cpu'):
-    obj = torch.load(tar_path, map_location=device)
-
-    t_dist = obj['t_dist']
-    i_given_t_dist = obj['i_given_t_dist']
-    s_dist = obj['s_dist']
-    return t_dist, i_given_t_dist, s_dist
+    return causal_graph

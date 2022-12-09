@@ -8,15 +8,13 @@ import seaborn as sns
 
 from attribute_scms import mnist
 
-
 parser = ArgumentParser()
 parser.add_argument('--data-dir', type=str,
                     help='path to folder with .npy files of data',
                     default='')
 parser.add_argument('--steps', type=int,
                     help='number of epochs to train the distributions',
-                    default=2000)
-
+                    default=200)
 
 if __name__ == '__main__':
     sns.set()
@@ -27,45 +25,19 @@ if __name__ == '__main__':
         os.path.join(args.data_dir, 'mnist-a-train.npy')
     )).float().to(device)
 
-    t_dist, i_given_t_dist, s_dist, l_dist, opt = mnist.train(a_train,
-                                                              device=device,
-                                                              steps=args.steps)
+    causal_graph = mnist.train(a_train,
+                               device=device,
+                               steps=args.steps)
 
-    torch.save({
-        't_dist': t_dist,
-        'i_given_t_dist': i_given_t_dist,
-        's_dist': s_dist,
-        'optimizer_state_dict': opt.state_dict()
-    }, 'MorphoMNIST_attribute_scm.tar')
+    torch.save({"graph": causal_graph}, 'MorphoMNIST_attribute_scm_NEW.tar')
 
-    t_true = a_train[:, 10]
-    t_gen = t_dist.sample((t_true.size(0), 1)).cpu().numpy().flatten()
-    sns.histplot(t_true, label='observed', color='b', alpha=0.3, kde=True, stat='density')
-    sns.histplot(t_gen, label='learned', color='r', alpha=0.3, kde=True, stat='density')
-    plt.legend()
-    plt.title('samples from p(t)')
-    plt.xlabel('t')
-    plt.savefig('MorphoMNIST_thickness_distribution.png')
-    plt.close()
+    sample = causal_graph.sample(10000)
 
-    t = torch.Tensor([[3.0]]).to(device)
-    i_gen = i_given_t_dist.condition(t).sample((10_000, 1)).cpu().numpy().reshape((-1,))
-    ei = torch.randn((10_000, 1)).to(device)
-    i_true = (191 * torch.sigmoid(.5 * ei + 2 * t - 5) + 64).cpu().numpy().reshape((-1,))
-    sns.histplot(i_true, label='observed', color='b', alpha=0.3, kde=True, stat='density')
-    sns.histplot(i_gen, label='learned', color='r', alpha=0.3, kde=True, stat='density')
-    plt.legend()
-    plt.title('samples from p(i|t=3)')
-    plt.xlabel('i')
-    plt.savefig('MorphoMNIST_intensity_distribution.png')
-    plt.close()
-
-    s_true = a_train[:, 12]
-    s_gen = s_dist.sample((10_000, 1)).cpu().numpy().flatten()
-    sns.histplot(s_true, label='observed', color='b', alpha=0.3, kde=True, stat='density')
-    sns.histplot(s_gen, label='learned', color='r', alpha=0.3, kde=True, stat='density')
-    plt.legend()
-    plt.title('samples from p(s)')
-    plt.xlabel('s')
-    plt.savefig('MorphoMNIST_slant_distribution.png')
-    plt.close()
+    for attr, idx in zip(["thickness", "intensity", "slant"], [10, 11, 12]):
+        sns.histplot(a_train[:, idx].cpu().numpy(),
+                     label='observed', color='b', alpha=0.3, kde=True, stat='density')
+        sns.histplot(sample[attr].cpu().numpy().flatten(),
+                     label='learned', color='r', alpha=0.3, kde=True, stat='density')
+        plt.legend()
+        plt.title(f"p({attr})")
+        plt.show()
