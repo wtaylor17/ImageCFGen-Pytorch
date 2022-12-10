@@ -371,8 +371,8 @@ def train(path_to_zip: str,
 
             Gz = G(z, c).detach()
             EX = E(images, c).detach()
-            DG = D(Gz, z, c)
-            DE = D(images, EX, c)
+            DG = D(Gz, z, c).sigmoid()
+            DE = D(images, EX, c).sigmoid()
             D_score += DG.mean().item()
             EG_score += DE.mean().item()
 
