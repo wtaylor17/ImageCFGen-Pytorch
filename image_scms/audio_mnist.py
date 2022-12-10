@@ -261,8 +261,7 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2),
             nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2),
-            nn.Conv2d(1024, 1, (1, 1), (1, 1)),
-            nn.Sigmoid()
+            nn.Conv2d(1024, 1, (1, 1), (1, 1))
         )
 
     @property
@@ -301,7 +300,7 @@ def train(path_to_zip: str,
                                    lr=l_rate, betas=(0.5, 0.9),
                                    weight_decay=discriminator_weight_decay)
 
-    loss_calc = AdversariallyLearnedInference(E, G, D)
+    gan_loss = nn.BCEWithLogitsLoss()
 
     print('Loading dataset...')
     data = AudioMNISTData(path_to_zip, device=device)
@@ -345,21 +344,30 @@ def train(path_to_zip: str,
             z_mean = torch.zeros((len(images), LATENT_DIM, 1, 1)).float()
             z = torch.normal(z_mean, z_mean + 1).to(device)
 
-            # Discriminator training
-            optimizer_D.zero_grad()
-            loss_D = loss_calc.discriminator_loss(
-                images, z, c
+            valid = torch.autograd.Variable(
+                torch.Tensor(images.size(0), 1).fill_(1.0).to(device),
+                requires_grad=False
             )
-            loss_D.backward()
-            optimizer_D.step()
+            fake = torch.autograd.Variable(
+                torch.Tensor(images.size(0), 1).fill_(0.0).to(device),
+                requires_grad=False
+            )
 
             # Encoder & Generator training
             optimizer_E.zero_grad()
-            loss_EG = loss_calc.generator_loss(
-                images, z, c
-            )
+            D_valid = D(images, E(images, c), c)
+            D_fake = D(G(z, c), z, c)
+            loss_EG = (gan_loss(D_valid, fake) + gan_loss(D_fake, valid)) / 2
             loss_EG.backward()
             optimizer_E.step()
+
+            # Discriminator training
+            optimizer_D.zero_grad()
+            D_valid = D(images, E(images, c), c)
+            D_fake = D(G(z, c), z, c)
+            loss_D = (gan_loss(D_valid, valid) + gan_loss(D_fake, fake)) / 2
+            loss_D.backward()
+            optimizer_D.step()
 
             Gz = G(z, c).detach()
             EX = E(images, c).detach()
