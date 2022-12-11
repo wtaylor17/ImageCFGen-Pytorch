@@ -17,6 +17,14 @@ from .training_utils import AdversariallyLearnedInference
 LATENT_DIM = 512
 ATTRIBUTE_COUNT = 47
 IMAGE_SHAPE = (128, 128)
+ATTRIBUTE_DIMS = {
+    "country_of_origin": 13,
+    "native_speaker": 2,
+    "accent": 15,
+    "digit": 10,
+    "age": 5,
+    "gender": 2
+}
 
 
 def init_weights(layer, std=0.001):
@@ -147,14 +155,17 @@ class Encoder(nn.Module):
     def __init__(self, d=64):
         super(Encoder, self).__init__()
         c2d = partial(nn.Conv2d, stride=(2, 2), padding=1)
-        self.embedding = nn.Sequential(
-            nn.Linear(47, 128*128),
-            nn.Tanh(),
-            nn.Unflatten(1, (1, 128, 128))
-        )
+        self.embedding_dict = nn.ModuleDict({
+            k: nn.Sequential(
+                nn.Embedding(v, 256),
+                nn.Unflatten(1, (1, 16, 16)),
+                nn.Upsample(scale_factor=8)
+            )
+            for k, v in ATTRIBUTE_DIMS.items()
+        })
         self.layers = nn.Sequential(
             # nn.BatchNorm2d(2),
-            c2d(2, d, (5, 5)),
+            c2d(len(ATTRIBUTE_DIMS) + 1, d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(d),
             c2d(d, 2 * d, (5, 5)),
@@ -177,10 +188,12 @@ class Encoder(nn.Module):
         return next(self.parameters()).device
 
     def forward(self, X, a):
-        attrs = torch.concat(a, dim=1)
-        embedding = self.embedding(attrs)
+        embeddings = [
+            self.embedding_dict[k](a[k].argmax(dim=1))
+            for k in sorted(ATTRIBUTE_DIMS.keys())
+        ]
         X = X.reshape((-1, 1, *IMAGE_SHAPE))
-        return self.layers(torch.concat([X, embedding], dim=1))
+        return self.layers(torch.concat([X, *embeddings], dim=1))
 
 
 class Generator(nn.Module):
@@ -190,9 +203,13 @@ class Generator(nn.Module):
                        stride=2,
                        padding=2,
                        output_padding=1)
+        self.embedding_dict = nn.ModuleDict({
+            k: nn.Embedding(v, 256)
+            for k, v in ATTRIBUTE_DIMS.items()
+        })
         self.layers = nn.Sequential(
-            nn.BatchNorm1d(LATENT_DIM + 47),
-            nn.Linear(LATENT_DIM + 47, 256 * d),
+            nn.BatchNorm1d(LATENT_DIM + 256 * len(ATTRIBUTE_DIMS)),
+            nn.Linear(LATENT_DIM + 256 * len(ATTRIBUTE_DIMS), 256 * d),
             nn.Unflatten(1, (16 * d, 4, 4)),
             nn.LeakyReLU(0.2),
             nn.BatchNorm2d(16 * d),
@@ -218,28 +235,34 @@ class Generator(nn.Module):
 
     def forward(self, z: torch.Tensor, a):
         z = z.reshape((-1, LATENT_DIM))
-        attrs = torch.concat(a, dim=1)
-        return self.layers(torch.concat([z, attrs], dim=1))
+        embeddings = [
+            self.embedding_dict[k](a[k].argmax(dim=1))
+            for k in sorted(ATTRIBUTE_DIMS.keys())
+        ]
+        return self.layers(torch.concat([z, *embeddings], dim=1))
 
 
 class Discriminator(nn.Module):
     def __init__(self, d=64):
         super(Discriminator, self).__init__()
         c2d = partial(nn.Conv2d, stride=(2, 2), padding=1)
+        self.embedding_dict = nn.ModuleDict({
+            k: nn.Sequential(
+                nn.Embedding(v, 256),
+                nn.Unflatten(1, (1, 16, 16)),
+                nn.Upsample(scale_factor=8)
+            )
+            for k, v in ATTRIBUTE_DIMS.items()
+        })
         self.dz = nn.Sequential(
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2),
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2)
         )
-        self.embedding = nn.Sequential(
-            nn.Linear(47, 128*128),
-            nn.Tanh(),
-            nn.Unflatten(1, (1, 128, 128))
-        )
         self.dx = nn.Sequential(
-            nn.BatchNorm2d(2),
-            c2d(2, d, (5, 5)),
+            nn.BatchNorm2d(len(ATTRIBUTE_DIMS) + 1),
+            c2d(len(ATTRIBUTE_DIMS) + 1, d, (5, 5)),
             nn.LeakyReLU(0.2),
             nn.BatchNorm2d(d),
             c2d(d, 2 * d, (5, 5)),
@@ -271,9 +294,11 @@ class Discriminator(nn.Module):
     def forward(self, X, z, a):
         X = X.reshape((-1, 1, *IMAGE_SHAPE))
         z = z.reshape((-1, LATENT_DIM, 1, 1))
-        attrs = torch.concat(a, dim=1)
-        embedding = self.embedding(attrs)
-        dx = self.dx(torch.concat([X, embedding], dim=1))
+        embeddings = [
+            self.embedding_dict[k](a[k].argmax(dim=1))
+            for k in sorted(ATTRIBUTE_DIMS.keys())
+        ]
+        dx = self.dx(torch.concat([X, *embeddings], dim=1))
         dz = self.dz(z)
         return self.dxz(torch.concat([dx, dz], dim=1)).reshape((-1, 1))
 
@@ -336,9 +361,8 @@ def train(path_to_zip: str,
         G.train()
         for i, batch in enumerate(tqdm(data.stream(batch_size=batch_size), total=n_batches)):
             images = batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
-            attrs = [batch[k] for k in attr_cols]
-            c = [torch.clone(attr).float().to(device)
-                 for attr in attrs]
+            c = {k: torch.clone(batch[k]).int().to(device)
+                 for k in attr_cols}
             images = spect_to_img(images)
 
             z_mean = torch.zeros((len(images), LATENT_DIM, 1, 1)).float()
@@ -388,9 +412,8 @@ def train(path_to_zip: str,
                 # generate images from same class as real ones
                 demo_batch = next(data.stream(batch_size=n_show))
                 images = demo_batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
-                attrs = [demo_batch[k] for k in attr_cols]
-                c = [torch.clone(attr).float().to(device)
-                     for attr in attrs]
+                c = {k: torch.clone(demo_batch[k]).int().to(device)
+                     for k in attr_cols}
                 x = spect_to_img(images)
 
                 z_mean = torch.zeros((len(x), LATENT_DIM, 1, 1)).float()
