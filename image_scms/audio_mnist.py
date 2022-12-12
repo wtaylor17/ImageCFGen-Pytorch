@@ -159,7 +159,8 @@ class Encoder(nn.Module):
             k: nn.Sequential(
                 nn.Embedding(v, 256),
                 nn.Unflatten(1, (1, 16, 16)),
-                nn.Upsample(scale_factor=8)
+                nn.Upsample(scale_factor=8),
+                nn.Tanh()
             )
             for k, v in ATTRIBUTE_DIMS.items()
         })
@@ -208,23 +209,23 @@ class Generator(nn.Module):
             for k, v in ATTRIBUTE_DIMS.items()
         })
         self.layers = nn.Sequential(
-            nn.BatchNorm1d(LATENT_DIM + 256 * len(ATTRIBUTE_DIMS)),
+            # nn.BatchNorm1d(LATENT_DIM + 256 * len(ATTRIBUTE_DIMS)),
             nn.Linear(LATENT_DIM + 256 * len(ATTRIBUTE_DIMS), 256 * d),
             nn.Unflatten(1, (16 * d, 4, 4)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(16 * d),
+            # nn.BatchNorm2d(16 * d),
             ct2d(16 * d, 8 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(8 * d),
+            # nn.BatchNorm2d(8 * d),
             ct2d(8 * d, 4 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(4 * d),
+            # nn.BatchNorm2d(4 * d),
             ct2d(4 * d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(2 * d),
+            # nn.BatchNorm2d(2 * d),
             ct2d(2 * d, d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(d),
+            # nn.BatchNorm2d(d),
             ct2d(d, 1, (5, 5)),
             nn.Tanh()
         )
@@ -250,7 +251,8 @@ class Discriminator(nn.Module):
             k: nn.Sequential(
                 nn.Embedding(v, 256),
                 nn.Unflatten(1, (1, 16, 16)),
-                nn.Upsample(scale_factor=8)
+                nn.Upsample(scale_factor=8),
+                nn.Tanh()
             )
             for k, v in ATTRIBUTE_DIMS.items()
         })
@@ -261,22 +263,22 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2)
         )
         self.dx = nn.Sequential(
-            nn.BatchNorm2d(len(ATTRIBUTE_DIMS) + 1),
+            # nn.BatchNorm2d(len(ATTRIBUTE_DIMS) + 1),
             c2d(len(ATTRIBUTE_DIMS) + 1, d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(d),
+            # nn.BatchNorm2d(d),
             c2d(d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(2 * d),
+            # nn.BatchNorm2d(2 * d),
             c2d(2 * d, 4 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(4 * d),
+            # nn.BatchNorm2d(4 * d),
             c2d(4 * d, 8 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(8 * d),
+            # nn.BatchNorm2d(8 * d),
             c2d(8 * d, 16 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(16 * d),
+            # nn.BatchNorm2d(16 * d),
             c2d(16 * d, LATENT_DIM, (5, 5))
         )
         self.dxz = nn.Sequential(
@@ -388,8 +390,12 @@ def train(path_to_zip: str,
             # Discriminator training
             optimizer_D.zero_grad()
             D_valid = D(images, E(images, c), c)
+            loss_D = gan_loss(D_valid, valid)
+            loss_D.backward()
+            optimizer_D.step()
+            optimizer_D.zero_grad()
             D_fake = D(G(z, c), z, c)
-            loss_D = (gan_loss(D_valid, valid) + gan_loss(D_fake, fake)) / 2
+            loss_D = gan_loss(D_fake, fake)
             loss_D.backward()
             optimizer_D.step()
 
