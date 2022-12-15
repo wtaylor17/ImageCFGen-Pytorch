@@ -312,7 +312,10 @@ def train(path_to_zip: str,
           save_images_every=2,
           batch_size=128,
           image_output_path='',
-          discriminator_weight_decay=0.0):
+          discriminator_weight_decay=0.0,
+          discriminator_label_flip_prob=0.0):
+
+    discriminator_label_flip_prob = min(max(discriminator_label_flip_prob, 0), 1.0)
     E = Encoder().to(device)
     G = Generator().to(device)
     D = Discriminator().to(device)
@@ -388,6 +391,15 @@ def train(path_to_zip: str,
             optimizer_E.step()
 
             # Discriminator training
+            if discriminator_label_flip_prob > 0:
+                flipped_inds = np.random.permutation(
+                    valid.size(0)
+                )[:int(valid.size(0) * discriminator_label_flip_prob)]
+                valid[flipped_inds] = 0
+                flipped_inds = np.random.permutation(
+                    valid.size(0)
+                )[:int(valid.size(0) * discriminator_label_flip_prob)]
+                fake[flipped_inds] = 1
             optimizer_D.zero_grad()
             D_valid = D(images, E(images, c), c)
             loss_D = gan_loss(D_valid, valid)
