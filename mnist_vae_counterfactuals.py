@@ -9,6 +9,7 @@ import seaborn as sns
 from deepscm_vae import mnist
 from attribute_scms import mnist as attribute_mnist
 from attribute_scms.training_utils import nf_forward, nf_inverse
+from attribute_scms.mnist import MNISTCausalGraph
 from tqdm import tqdm
 from morphomnist.morpho import ImageMorphology
 from morphomnist.perturb import SetThickness, SetSlant
@@ -100,13 +101,13 @@ if __name__ == '__main__':
     )).float().to(device)
     a_test = torch.from_numpy(np.load(
         os.path.join(args.data_dir, 'mnist-a-test.npy')
-    )).float().to(device)
+    )).float().to(device)[:20]
     x_train = torch.from_numpy(np.load(
         os.path.join(args.data_dir, 'mnist-x-train.npy')
     )).float().to(device)
     x_test = torch.from_numpy(np.load(
         os.path.join(args.data_dir, 'mnist-x-test.npy')
-    )).float().to(device)
+    )).float().to(device)[:20]
 
     ground_truth_scm = MorphoMNISTSCM()
 
@@ -114,8 +115,7 @@ if __name__ == '__main__':
     vae.load_state_dict(torch.load(args.image_model_file,
                                    map_location=device)['vae_state_dict'])
 
-    t_dist, i_given_t_dist, s_dist = attribute_mnist.load_model(args.attr_model_file,
-                                                                device=device)
+    graph: MNISTCausalGraph = torch.load(args.attr_model_file)["graph"]
 
     n_show = 10
     inds = np.random.permutation(len(x_test))
@@ -127,16 +127,22 @@ if __name__ == '__main__':
         c_min, c_max = a_train[:, 10:].min(dim=0).values, a_train[:, 10:].max(dim=0).values
         c[:, 10:] = (c[:, 10:] - c_min) / (c_max - c_min)
 
-        i_noise_pred = nf_inverse(i_given_t_dist.condition(c_raw[:, 10:11]),
-                                  c_raw[:, 11:12])
         t_new = c_raw[:, 10:11] + 2
-        i_new_pred = nf_forward(i_given_t_dist.condition(t_new), i_noise_pred)
+
+        cf = graph.sample_cf({
+            "label": c[:, 10:].argmax(1),
+            "thickness": c_raw[:, 10:11],
+            "intensity": c_raw[:, 11:12],
+            "slant": c_raw[:, 12:13]
+        }, {
+            "thickness": t_new
+        })
 
         true_image_out, true_new_attributes = ground_truth_scm.counterfactual_t(x_test, c_raw, t_new)
 
         c_cf = torch.clone(c_raw)
         c_cf[:, 10] = t_new.flatten()
-        c_cf[:, 11] = i_new_pred.flatten()
+        c_cf[:, 11] = cf["intensity"].flatten()
         c_cf[:, 10:] = (c_cf[:, 10:] - c_min) / (c_max - c_min)
         pred_image_out = 0
         for _ in range(32):
@@ -152,7 +158,7 @@ if __name__ == '__main__':
         fig, ax = plt.subplots(3, n_show, figsize=(15, 5))
         fig.subplots_adjust(wspace=0.05, hspace=0)
         plt.rcParams.update({'font.size': 20})
-        fig.suptitle('Thickness counterfactuals on Morpho-MNIST')
+        fig.suptitle('DeepSCM Morpho-MNIST Thickness Counterfactuals')
         fig.text(0.01, 0.75, 'Original', ha='left')
         fig.text(0.01, 0.5, 'do(t+2) GT', ha='left')
         fig.text(0.01, 0.25, 'do(t+2) pred', ha='left')
@@ -160,14 +166,13 @@ if __name__ == '__main__':
         for i in range(n_show):
             j = inds[i]
             ax[0, i].imshow(real[j], cmap='gray', vmin=0, vmax=1)
-            ax[0, i].set_title(
-                f'c = {c_raw[j, :10].argmax().item()}, t = {round(float(c_raw[j, 10].item()), 2)}\ni'
-                f' = {round(float(c_raw[j, 11].item()), 2)}, s = {round(float(c_raw[j, 12].item()), 2)}',
-                fontsize=8)
+            # ax[0, i].set_title(
+            #     f'c = {c_raw[j, :10].argmax().item()}, t = {round(float(c_raw[j, 10].item()), 2)}\ni'
+            #     f' = {round(float(c_raw[j, 11].item()), 2)}, s = {round(float(c_raw[j, 12].item()), 2)}',
+            #     fontsize=8)
             ax[0, i].axis('off')
             ax[1, i].imshow(true_image_out[j].reshape((28, 28)), cmap='gray', vmin=0, vmax=1)
             ax[1, i].axis('off')
             ax[2, i].imshow(pred_image_out[j].reshape((28, 28)), cmap='gray', vmin=0, vmax=1)
             ax[2, i].axis('off')
-        plt.savefig('mnist-vae-counterfactuals.png')
-        plt.close()
+        plt.show()

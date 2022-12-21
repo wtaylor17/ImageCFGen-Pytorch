@@ -66,21 +66,20 @@ if __name__ == '__main__':
         fig, ax = plt.subplots(3, n_show, figsize=(15, 5))
         fig.subplots_adjust(wspace=0.05, hspace=0)
         plt.rcParams.update({'font.size': 20})
-        fig.suptitle('Training complete')
+        fig.suptitle('ImageCFGen Generation and Reconstruction')
         fig.text(0.01, 0.75, 'G(z, c)', ha='left')
         fig.text(0.01, 0.5, 'x', ha='left')
         fig.text(0.01, 0.25, 'G(E(x, c), c)', ha='left')
 
         for i in range(n_show):
             ax[0, i].imshow(gener[i], cmap='gray', vmin=0, vmax=1)
-            ax[0, i].set_title(
-                f'c = {cr[i, :10].argmax()}, t = {round(float(cr[i, 10]), 2)}\ni'
-                f' = {round(float(cr[i, 11]), 2)}, s = {round(float(cr[i, 12]), 2)}',
-                fontsize=8)
+            # ax[0, i].set_title(
+            #     f'c = {cr[i, :10].argmax()}, t = {round(float(cr[i, 10]), 2)}\ni'
+            #     f' = {round(float(cr[i, 11]), 2)}, s = {round(float(cr[i, 12]), 2)}',
+            #     fontsize=8)
             ax[0, i].axis('off')
             ax[1, i].imshow(real[i], cmap='gray', vmin=0, vmax=1)
             ax[1, i].axis('off')
             ax[2, i].imshow(recon[i], cmap='gray', vmin=0, vmax=1)
             ax[2, i].axis('off')
-        plt.savefig('mnist-imagecfgen-eval.png')
-        plt.close()
+        plt.show()
