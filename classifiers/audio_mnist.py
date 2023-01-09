@@ -70,7 +70,7 @@ class AudioMNISTData:
                 subject_meta = meta_data[subject_name]
 
                 for dig in range(0, 10):
-                    for run in range(0, 2):
+                    for run in range(0, 50):
                         wav_path = f"data/{subject_name}/{dig}_{subject_name}_{run}.wav"
                         sr, wav_arr = read_wav(BytesIO(zf.read(wav_path)))
                         wav_arr = librosa.core.resample(y=wav_arr.astype(np.float32),
@@ -185,7 +185,7 @@ def train(zip_path: str,
         tq = tqdm(data.stream(batch_size=batch_size), total=n_batches)
         for batch in tq:
             opt.zero_grad()
-            pred = model(batch["audio"].reshape((batch_size, 1, 128, 128)))
+            pred = model(batch["audio"].reshape((-1, 1, 128, 128)))
             loss = criterion(pred, batch[attribute])
             loss.backward()
             opt.step()
