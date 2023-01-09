@@ -123,7 +123,7 @@ class AudioMNISTData:
                     return torch.from_numpy(oh.transform(x)).to(self.device)
 
                 def inv_transform(x, oh=None):
-                    return torch.from_numpy(oh.inverse_transform(x)).to(self.device)
+                    return oh.inverse_transform(x)
                 self.transforms[feature] = partial(transform, oh=one_hot)
                 self.inv_transforms[feature] = partial(inv_transform, oh=one_hot)
 
@@ -131,7 +131,7 @@ class AudioMNISTData:
                                            strategy="uniform")
             discretizer.fit(self.data["age"])
             self.transforms["age"] = lambda x: torch.from_numpy(discretizer.transform(x)).to(self.device)
-            self.inv_transforms["age"] = lambda x: torch.from_numpy(discretizer.inverse_transform(x)).to(self.device)
+            self.inv_transforms["age"] = lambda x: discretizer.inverse_transform(x)
 
     def stream(self, batch_size: int = 128, transform: bool = True, shuffle: bool = True):
         N = len(self.data["audio"])

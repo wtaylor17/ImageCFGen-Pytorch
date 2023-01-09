@@ -18,12 +18,12 @@ class CausalModuleBase(torch.nn.Module):
 
     # meant to compute a sample from p(U|obs,context)
     @abstractmethod
-    def recover_noise(self, obs, context, **kwargs) -> torch.Tensor:
+    def recover_noise(self, obs, *context, **kwargs) -> torch.Tensor:
         raise NotImplementedError
 
     # meant to compute p(obs|context)
     @abstractmethod
-    def condition(self, context, **kwargs) -> dist.Distribution:
+    def condition(self, *context, **kwargs) -> dist.Distribution:
         raise NotImplementedError
 
     @abstractmethod
@@ -31,8 +31,11 @@ class CausalModuleBase(torch.nn.Module):
         raise NotImplementedError
 
     @abstractmethod
-    def generate(self, context, noise, **kwargs) -> torch.Tensor:
+    def generate(self, noise, *context, **kwargs) -> torch.Tensor:
         raise NotImplementedError
+
+    def forward(self, *context, **kwargs) -> dist.Distribution:
+        return self.condition(*context, **kwargs)
 
 
 class TransformedCM(CausalModuleBase):
@@ -43,11 +46,11 @@ class TransformedCM(CausalModuleBase):
     def noise_distribution(self, *args, **kwargs) -> dist.Distribution:
         return self.td.base_dist
 
-    def recover_noise(self, obs, context, **kwargs) -> torch.Tensor:
+    def recover_noise(self, obs, *context, **kwargs) -> torch.Tensor:
         noise_val = nf_inverse(self.td, obs)
         return noise_val
 
-    def condition(self, context, **kwargs) -> dist.Distribution:
+    def condition(self, *context, **kwargs) -> dist.Distribution:
         return self.td
 
     def parameters(self, recurse: bool = True) -> Iterator[torch.nn.Parameter]:
@@ -59,7 +62,7 @@ class TransformedCM(CausalModuleBase):
             if hasattr(t, "clear_cache"):
                 t.clear_cache()
 
-    def generate(self, context, noise, **kwargs) -> torch.Tensor:
+    def generate(self, noise, *context, **kwargs) -> torch.Tensor:
         return nf_forward(self.td, noise)
 
 
@@ -68,19 +71,23 @@ class CategoricalCM(CausalModuleBase):
         super().__init__()
         self.d = d
 
+    @property
+    def n_categories(self):
+        return self.d.probs.size(0)
+
     def noise_distribution(self, *args, **kwargs) -> dist.Distribution:
         return self.d
 
-    def recover_noise(self, obs, context, **kwargs) -> torch.Tensor:
+    def recover_noise(self, obs, *context, **kwargs) -> torch.Tensor:
         return obs
 
-    def condition(self, context, **kwargs) -> dist.Distribution:
+    def condition(self, *context, **kwargs) -> dist.Distribution:
         return self.d
 
     def parameters(self, recurse: bool = True) -> Iterator[torch.nn.Parameter]:
         return []
 
-    def generate(self, context, noise, **kwargs) -> torch.Tensor:
+    def generate(self, noise, *context, **kwargs) -> torch.Tensor:
         return noise
 
 
@@ -88,8 +95,8 @@ class ConditionalTransformedCM:
     def __init__(self, ctd: dist.ConditionalTransformedDistribution):
         self.ctd = ctd
 
-    def condition(self, context) -> TransformedCM:
-        return TransformedCM(self.ctd.condition(context))
+    def condition(self, *context) -> TransformedCM:
+        return TransformedCM(self.ctd.condition(*context))
 
     def parameters(self):
         return sum([list(t.parameters()) for t in self.ctd.transforms
@@ -116,29 +123,30 @@ class ConditionalCategoricalCM(CausalModuleBase):
     def __init__(self, model: torch.nn.Module, n_categories: int):
         super().__init__()
         self.model = model
+        self.gumbel = gumbel_distribution()
         self.n_categories = n_categories
 
     def noise_distribution(self, *args, **kwargs) -> dist.Distribution:
         return self.gumbel
 
-    def recover_noise(self, y, context, **kwargs) -> torch.Tensor:
+    def recover_noise(self, y, *context, **kwargs) -> torch.Tensor:
         inds = list(range(y.size(0)))
         g = self.gumbel.sample(y.shape + (self.n_categories,)).to(y.device)
         gk = g[inds, y]
-        logits = self.model(context)
+        logits = self.model(*context)
         noise_k = gk + logits.exp().sum(dim=-1).log() - logits[inds, y]
         noise_l = -torch.log(torch.exp(-g - logits) +
                              torch.exp(-gk - logits[inds, y])) - logits
         noise_l[inds, y] = noise_k
         return noise_l
 
-    def condition(self, context, **kwargs) -> dist.Distribution:
-        logits = self.model(context)
+    def condition(self, *context, **kwargs) -> dist.Distribution:
+        logits = self.model(*context)
         return dist.Categorical(logits=logits)
 
     def parameters(self, recurse: bool = True) -> Iterator[torch.nn.Parameter]:
         return self.model.parameters()
 
-    def generate(self, context, noise, **kwargs) -> torch.Tensor:
-        logits = self.model(context)
+    def generate(self, noise, *context, **kwargs) -> torch.Tensor:
+        logits = self.model(*context)
         return (logits + noise).argmax(dim=1)

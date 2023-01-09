@@ -7,8 +7,11 @@ from io import BytesIO
 from zipfile import ZipFile
 from sklearn.preprocessing import OneHotEncoder, KBinsDiscretizer
 from tqdm import tqdm
+from functools import partial
 
 from .training_utils import batchify
+from .causal_module import *
+from .graph import CausalModuleGraph
 
 
 def gumbel_distribution():
@@ -20,42 +23,6 @@ def gumbel_distribution():
     ]
     base = dist.Uniform(0, 1)
     return dist.TransformedDistribution(base, transforms)
-
-
-class ConditionalCategorical(dist.ConditionalDistribution):
-    def __init__(self, model: torch.nn.Module, n_categories: int):
-        self.model = model
-        self.gumbel = gumbel_distribution()
-        self.n_categories = n_categories
-
-    def condition(self, *context):
-        logits = self.model(*context)
-        return dist.Categorical(logits=logits)
-
-    def forward(self, noise, *context):
-        # computes f(noise;context)
-        logits = self.model(*context)
-        return torch.argmax(logits + noise, dim=-1)
-
-    def noise_sample(self, y: torch.Tensor, *context, device="cpu"):
-        inds = list(range(y.size(0)))
-        g = self.gumbel.sample(y.shape + (self.n_categories,)).to(device)
-        gk = g[inds, y]
-        logits = self.model(*context)
-        noise_k = gk + logits.exp().sum(dim=-1).log() - logits[inds, y]
-        noise_l = -torch.log(torch.exp(-g - logits) +
-                             torch.exp(-gk - logits[inds, y])) - logits
-        noise_l[inds, y] = noise_k
-        return noise_l
-
-    def counterfactual(self, y, original_context, cf_context, mc_rounds=1, device="cpu"):
-        cf_logits = mc_rounds * self.model(*cf_context)
-
-        for _ in range(mc_rounds):
-            cf_logits = cf_logits + self.noise_sample(y, *original_context, device=device)
-        cf_logits = cf_logits / mc_rounds
-
-        return torch.argmax(cf_logits, dim=-1)
 
 
 def dense_net(n_in: int,
@@ -84,22 +51,27 @@ class ComboNet(torch.nn.Module):
             [f(i) for f, i in zip(self.models, inputs)],
             dim=-1
         )
-        return self.downstream(features)
+        out = self.downstream(features)
+        return out
 
 
 def categorical_mle(data_train: torch.Tensor, device="cpu"):
     data_train = data_train.to(device)
-    values, counts = data_train.unique(return_counts=True)
-    probs = counts / data_train.size(0)
-    return dist.Categorical(probs=probs)
+    values, counts = np.unique(data_train.detach().numpy(), return_counts=True)
+    probs = np.zeros((data_train.max().item() + 1,))
+    for v in values:
+        probs[v] = counts[values == v]
+    probs = torch.from_numpy(probs / data_train.size(0)).float().to(device)
+    return CategoricalCM(dist.Categorical(probs=probs))
 
 
 def conditional_categorical_mle(n_categories: int,
                                 context_dim: int,
-                                device="cpu"):
+                                n_hidden_layers: int = 2,
+                                device: str = "cpu"):
     nn = dense_net(context_dim, 128, n_categories,
-                   n_hidden_layers=2).to(device)
-    return ConditionalCategorical(nn, n_categories)
+                   n_hidden_layers=n_hidden_layers).to(device)
+    return ConditionalCategoricalCM(nn, n_categories)
 
 
 def conditional_double_categorical_mle(n_categories: int,
@@ -113,14 +85,14 @@ def conditional_double_categorical_mle(n_categories: int,
     downstream = dense_net(128, 64, n_categories,
                            n_hidden_layers=0).to(device)
     combo = ComboNet(downstream, nn1, nn2)
-    return ConditionalCategorical(combo, n_categories)
+    return ConditionalCategoricalCM(combo, n_categories)
 
 
 class AudioMNISTData:
-    def __init__(self, path_to_zip: str):
+    def __init__(self, path_to_zip: str, device="cpu"):
         self.path_to_zip = path_to_zip
+        self.device = device
         self.data = {
-            "spectrogram": [],
             "country_of_origin": [],
             "native_speaker": [],
             "accent": [],
@@ -132,45 +104,34 @@ class AudioMNISTData:
         self.inv_transforms = {k: lambda x: x for k in self.data}
 
         with ZipFile(self.path_to_zip, "r") as zf:
-            json_str = zf.read("spectrograms/audioMNIST_meta.txt").decode("utf-8")
+            json_str = zf.read("data/audioMNIST_meta.txt").decode("utf-8")
             meta_data = json.loads(json_str)
             for subject_num in range(1, 61):
                 subject_name = f"0{subject_num}"[-2:]
                 subject_meta = meta_data[subject_name]
-                spect_name = f"spectrograms/{subject_name}.npy"
-                spectrogram = np.load(BytesIO(zf.read(spect_name)))
-                self.data["spectrogram"].append(spectrogram)
 
-                country = subject_meta["origin"].split(", ")[1].lower()
-                if country == "spanien":
-                    country = "spain"
+                for dig in range(0, 10):
+                    for run in range(0, 50):
+                        country = subject_meta["origin"].split(", ")[1].lower()
+                        if country == "spanien":
+                            country = "spain"
 
-                native_speaker = subject_meta["native speaker"]
-                accent = subject_meta["accent"].lower()
-                if accent == "german/spanish":
-                    accent = "german"
+                        native_speaker = subject_meta["native speaker"]
+                        accent = subject_meta["accent"].lower()
+                        if accent == "german/spanish":
+                            accent = "german"
 
-                age = int(subject_meta["age"])
-                if age > 100:  # error in data
-                    age = 28
-                gender = subject_meta["gender"]
-                file_list = zf.read(f"spectrograms/{subject_name}_files.txt").decode("utf-8").split("\n")
-                digits = [int(file_name.split('/')[-1].split('_')[0])
-                          for file_name in file_list]
+                        age = int(subject_meta["age"])
+                        if age > 100:  # error in data
+                            age = 28
+                        gender = subject_meta["gender"]
 
-                N = len(spectrogram)
-                self.data["country_of_origin"].extend([country] * N)
-                self.data["native_speaker"].extend([native_speaker] * N)
-                self.data["accent"].extend([accent] * N)
-                self.data["digit"].extend(digits)
-                self.data["age"].extend([age] * N)
-                self.data["gender"].extend([gender] * N)
-
-            self.data["spectrogram"] = np.concatenate(self.data["spectrogram"], axis=0)
-            mean = self.data["spectrogram"].mean(axis=(0, 1))
-            std = self.data["spectrogram"].std(axis=(0, 1))
-            self.transforms["spectrogram"] = lambda x: (x - mean) / std
-            self.inv_transforms["spectrogram"] = lambda x: x * std + mean
+                        self.data["country_of_origin"].append(country)
+                        self.data["native_speaker"].append(native_speaker)
+                        self.data["accent"].append(accent)
+                        self.data["digit"].append(dig)
+                        self.data["age"].append(age)
+                        self.data["gender"].append(gender)
 
             for k in self.data:
                 self.data[k] = np.asarray(self.data[k])
@@ -181,17 +142,24 @@ class AudioMNISTData:
                             "accent", "digit",
                             "native_speaker", "gender"]:
                 one_hot = OneHotEncoder(sparse=False).fit(self.data[feature])
-                self.transforms[feature] = one_hot.transform
-                self.inv_transforms[feature] = one_hot.inverse_transform
+
+                def transform(x, oh=None):
+                    return torch.from_numpy(oh.transform(x)).to(self.device)
+
+                def inv_transform(x, oh=None):
+                    return torch.from_numpy(oh.inverse_transform(x)).to(self.device)
+                self.transforms[feature] = partial(transform, oh=one_hot)
+                self.inv_transforms[feature] = partial(inv_transform, oh=one_hot)
 
             discretizer = KBinsDiscretizer(encode="onehot-dense",
                                            strategy="uniform")
             discretizer.fit(self.data["age"])
-            self.transforms["age"] = discretizer.transform
-            self.inv_transforms["age"] = discretizer.inverse_transform
+            print("number of age bins: ", discretizer.n_bins)
+            self.transforms["age"] = lambda x: torch.from_numpy(discretizer.transform(x)).to(self.device)
+            self.inv_transforms["age"] = lambda x: torch.from_numpy(discretizer.inverse_transform(x)).to(self.device)
 
     def stream(self, batch_size: int = 128, transform: bool = True, shuffle: bool = True):
-        N = len(self.data["spectrogram"])
+        N = len(self.data["age"])
         i = 0
         inds = np.random.permutation(N) if shuffle else np.array(list(range(N)))
         while i < N:
@@ -208,6 +176,39 @@ class AudioMNISTData:
             i += batch_size
 
 
+class AudioMNISTCausalGraph(CausalModuleGraph):
+    def __init__(self, ds: dict, device: str = "cpu"):
+        super().__init__()
+        country_dist = categorical_mle(ds["country_of_origin"].argmax(dim=1), device=device)
+        print("native speaker has", ds["native_speaker"].size(1), "categories")
+        native_speaker_dist = conditional_categorical_mle(
+            ds["native_speaker"].size(1),
+            ds["country_of_origin"].size(1),
+            device=device
+        )
+        for m in native_speaker_dist.model.modules():
+            print(m)
+        accent_dist = conditional_double_categorical_mle(
+            ds["accent"].size(1),
+            ds["country_of_origin"].size(1),
+            ds["native_speaker"].size(1),
+            device=device
+        )
+        digit_dist = categorical_mle(ds["digit"].argmax(dim=1), device=device)
+        age_dist = categorical_mle(ds["age"].argmax(dim=1), device=device)
+        gender_dist = categorical_mle(ds["gender"].argmax(dim=1), device=device)
+
+        self.add_module("country_of_origin", country_dist)
+        self.add_module("native_speaker", native_speaker_dist)
+        self.add_module("accent", accent_dist)
+        self.add_module("digit", digit_dist)
+        self.add_module("age", age_dist)
+        self.add_module("gender", gender_dist)
+        self.add_edge("country_of_origin", "native_speaker")
+        self.add_edge("country_of_origin", "accent")
+        self.add_edge("native_speaker", "accent")
+
+
 def train(path_to_zip: str,
           steps=2000,
           device='cpu',
@@ -215,28 +216,15 @@ def train(path_to_zip: str,
     data = AudioMNISTData(path_to_zip)
     ds = list(data.stream(batch_size=30_000))[0]
     ds = {
-        k: torch.from_numpy(v).float().to(device)
+        k: v.float().to(device)
         for k, v in ds.items()
+        if k != "audio"
     }
-    country_dist = categorical_mle(ds["country_of_origin"].argmax(dim=1), device=device)
-    native_speaker_dist = conditional_categorical_mle(
-        ds["native_speaker"].size(1),
-        ds["country_of_origin"].size(1),
-        device=device
-    )
-    accent_dist = conditional_double_categorical_mle(
-        ds["accent"].size(1),
-        ds["country_of_origin"].size(1),
-        ds["native_speaker"].size(1),
-        device=device
-    )
-    digit_dist = categorical_mle(ds["digit"].argmax(dim=1), device=device)
-    age_dist = categorical_mle(ds["age"].argmax(dim=1), device=device)
-    gender_dist = categorical_mle(ds["gender"], device=device)
+    graph = AudioMNISTCausalGraph(ds, device=device)
 
-    optimizer = torch.optim.Adam(list(native_speaker_dist.model.parameters()) +
-                                 list(accent_dist.model.parameters()),
-                                 lr=lr)
+    params = sum((list(graph.get_module(k).parameters())
+                  for k in ["native_speaker", "accent"]), [])
+    optimizer = torch.optim.Adam(params, lr=lr)
 
     country = ds["country_of_origin"]
     native_speaker = ds["native_speaker"]
@@ -254,19 +242,16 @@ def train(path_to_zip: str,
         epoch_loss = 0
         for c, n, a, ag in batches:
             optimizer.zero_grad()
-            loss = -(native_speaker_dist.condition(c).log_prob(n.argmax(dim=1)) +
-                     accent_dist.condition(c, n).log_prob(a.argmax(dim=1))).mean()
+            lp = graph.log_prob({
+                "country_of_origin": c,
+                "native_speaker": n,
+                "accent": a,
+                "age": ag
+            })
+            loss = -(lp["native_speaker"] + lp["accent"]).mean()
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
         tq.set_description(f'loss = {round(epoch_loss / len(batches), 4)}')
 
-    return {
-        "country": country_dist,
-        "native_speaker": native_speaker_dist,
-        "accent": accent_dist,
-        "digit": digit_dist,
-        "age": age_dist,
-        "gender": gender_dist,
-        "optimizer": optimizer
-    }
+    return graph
