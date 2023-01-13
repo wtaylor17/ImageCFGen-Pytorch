@@ -2,10 +2,9 @@ from argparse import ArgumentParser
 import torch
 import numpy as np
 import os
-import json
 from image_scms.audio_mnist import ATTRIBUTE_DIMS, AudioMNISTData, Generator
+from image_scms.training_utils import batchify_dict
 from attribute_scms.audio_mnist import AudioMNISTCausalGraph
-from scipy.io.wavfile import write as write_wav
 
 parser = ArgumentParser()
 parser.add_argument("-m", "--image-model", type=str)
@@ -14,8 +13,7 @@ parser.add_argument("--gender-clf", type=str, default=None)
 parser.add_argument("--digit-clf", type=str, default=None)
 parser.add_argument("--accent-clf", type=str, default=None)
 parser.add_argument("-d", "--data", type=str, default="AudioMNIST-data.zip")
-parser.add_argument("-n", "--num-samples", type=int, default=10)
-parser.add_argument("-o", "--outdir", type=str, default=".")
+parser.add_argument("-n", "--num-samples", type=int, default=10_000)
 parser.add_argument("-r", "--mc-rounds", type=int, default=4)
 
 
@@ -25,8 +23,6 @@ if __name__ == "__main__":
     attr_path = args.attribute_model
     num_samples = args.num_samples
     mc_rounds = args.mc_rounds
-    outdir = args.outdir
-    os.makedirs(outdir, exist_ok=True)
     gender_clf = args.gender_clf
     digit_clf = args.digit_clf
     accent_clf = args.accent_clf
@@ -79,55 +75,35 @@ if __name__ == "__main__":
             for k, v in attrs_graph.sample(n=num_samples).items()
         }
 
-        attr_strings = {
-            k: data.inv_transforms[k](v)
-            for k, v in attrs.items()
-        }
-
         print("\n".join(f"{k}: {v.shape}" for k, v in attrs.items()))
 
-        gen = 0
-        for _ in range(mc_rounds):
-            z = torch.randn(size=(num_samples, 512, 1, 1))
-            gen = gen + G(z, attrs)
-        gen = gen / mc_rounds
-        spect = img_to_spect(gen)
+        gender_acc, digit_acc, accent_acc = 0, 0, 0
 
-        gender_preds, digit_preds, accent_preds = None, None, None
+        for attr_batch in batchify_dict(attrs, device=device):
+            gen = 0
+            for _ in range(mc_rounds):
+                z = torch.randn(size=(len(attr_batch["gender"]), 512, 1, 1))
+                gen = gen + G(z, attrs)
+            gen = gen / mc_rounds
+            spect = img_to_spect(gen)
+
+            if gender_clf:
+                gender_preds = gender_clf(spect).argmax(1)
+                gender_acc += (gender_preds == attr_batch["gender"].argmax(1)).sum()
+            if digit_clf:
+                digit_preds = digit_clf(spect).argmax(1)
+                digit_acc += (digit_preds == attr_batch["digit"].argmax(1)).sum()
+            if accent_clf:
+                accent_preds = accent_clf(spect).argmax(1)
+                accent_acc += (accent_preds == attr_batch["accent"].argmax(1)).sum()
+
+        gender_acc = gender_acc / num_samples
+        digit_acc = digit_acc / num_samples
+        accent_acc = accent_acc / num_samples
+
         if gender_clf:
-            gender_preds = gender_clf(spect)
-            gender_preds = torch.eye(
-                ATTRIBUTE_DIMS["gender"]
-            )[gender_preds.argmax(1).flatten()].cpu().numpy()
-            gender_preds = data.inv_transforms["gender"](gender_preds)
+            print("Gender accuracy =", gender_acc)
         if digit_clf:
-            digit_preds = digit_clf(spect)
-            digit_preds = torch.eye(
-                ATTRIBUTE_DIMS["digit"]
-            )[digit_preds.argmax(1).flatten()].cpu().numpy()
-            digit_preds = data.inv_transforms["digit"](digit_preds)
+            print("Digit accuracy =", digit_acc)
         if accent_clf:
-            accent_preds = accent_clf(spect)
-            accent_preds = torch.eye(
-                ATTRIBUTE_DIMS["accent"]
-            )[accent_preds.argmax(1).flatten()].cpu().numpy()
-            accent_preds = data.inv_transforms["accent"](accent_preds)
-
-        wavs = data.inv_transforms["audio"](spect.cpu().numpy()).cpu().numpy().reshape((num_samples, -1))
-        for i in range(num_samples):
-            curwav = np.int16(wavs[i] / np.max(np.abs(wavs[i])) * 32767)
-            write_wav(os.path.join(outdir, f"sample-{i}.wav"), 8000, curwav)
-            attrs_json = {
-                k: str(v[i, 0])
-                for k, v in attr_strings.items()
-            }
-            if digit_preds is not None:
-                attrs_json["digit_pred"] = str(digit_preds[i].flatten()[0])
-            if accent_preds is not None:
-                attrs_json["accent_pred"] = str(accent_preds[i].flatten()[0])
-            if gender_preds is not None:
-                attrs_json["gender_pred"] = str(gender_preds[i].flatten()[0])
-            json_str = json.dumps(attrs_json, indent=4)
-            print(json_str)
-            with open(f"sample-{i}.json", "w") as fp:
-                json.dump(attrs_json, fp, indent=4)
+            print("Accent accuracy =", accent_acc)

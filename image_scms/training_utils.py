@@ -13,6 +13,20 @@ def batchify(*tensors, batch_size=128, device='cpu'):
         yield tuple(x[i:N].to(device) for x in tensors)
 
 
+def batchify_dict(tensors: dict, batch_size=128, device='cpu'):
+    i = 0
+    N = min(map(len, tensors.values()))
+    while i < N:
+        yield {
+            k: v[i:i + batch_size] for k, v in tensors.items()
+        }
+        i += batch_size
+    if i < N:
+        yield {
+            k: v[i:N] for k, v in tensors.items()
+        }
+
+
 def binarized_attribute_channel(image: torch.Tensor, attributes: torch.Tensor, device='cpu'):
     n, c, w, h = image.shape
     out = torch.zeros((n, attributes.shape[1], w, h)).float().to(device)
