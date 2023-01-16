@@ -1,9 +1,5 @@
-import torch
 import numpy as np
-import pyro.distributions as dist
-import pyro.distributions.transforms as T
 import json
-from io import BytesIO
 from zipfile import ZipFile
 from sklearn.preprocessing import OneHotEncoder, KBinsDiscretizer
 from tqdm import tqdm
@@ -12,6 +8,10 @@ from functools import partial
 from .training_utils import batchify
 from .causal_module import *
 from .graph import CausalModuleGraph
+
+
+np.random.seed(42)
+VALIDATION_RUNS = np.random.randint(0, 50, size=(10,)).tolist()
 
 
 def gumbel_distribution():
@@ -158,14 +158,26 @@ class AudioMNISTData:
             self.transforms["age"] = lambda x: torch.from_numpy(discretizer.transform(x)).to(self.device)
             self.inv_transforms["age"] = lambda x: torch.from_numpy(discretizer.inverse_transform(x)).to(self.device)
 
-    def stream(self, batch_size: int = 128, transform: bool = True, shuffle: bool = True):
-        N = len(self.data["age"])
+    def stream(self,
+               batch_size: int = 128,
+               transform: bool = True,
+               shuffle: bool = True,
+               excluded_runs=None,
+               excluded_subjects=None):
+        excluded_runs = np.array(excluded_runs or [])
+        excluded_subjects = np.array(excluded_subjects or [])
+        data_to_use = {
+            k: v[~np.isin(self.data["run"].flatten(), excluded_runs) &
+                 ~np.isin(self.data["subject"].flatten(), excluded_subjects)]
+            for k, v in self.data.items()
+        }
+        N = len(data_to_use["audio"])
         i = 0
         inds = np.random.permutation(N) if shuffle else np.array(list(range(N)))
         while i < N:
             batch_dict = {
-                k: self.data[k][inds[i:min(N, i + batch_size)]]
-                for k in self.data
+                k: data_to_use[k][inds[i:min(N, i + batch_size)]]
+                for k in data_to_use
             }
             if transform:
                 batch_dict = {

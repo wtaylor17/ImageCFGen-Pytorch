@@ -121,7 +121,6 @@ class CausalModuleGraph:
             for u in v_parents:
                 if isinstance(self.modules[u], (ConditionalCategoricalCM, CategoricalCM)):
                     parent_vals.append(torch.eye(self.modules[u].n_categories)[obs_out[u].flatten()])
-                    print(u, obs_out[u].shape, parent_vals[-1].shape)
                 else:
                     parent_vals.append(obs_out[u])
             if isinstance(self.modules[v], ConditionalCategoricalCM):
@@ -143,25 +142,31 @@ class CausalModuleGraph:
         for v in self.top_sort():
             if v not in obs:
                 v_parents = self.parents(v)
-                parent_vals = [obs[u] for u in v_parents]
-                if len(parent_vals) > 0:
-                    parent_vals = torch.concat(parent_vals, dim=-1)
+                parent_vals = []
+                for u in v_parents:
+                    if isinstance(self.modules[u], (ConditionalCategoricalCM, CategoricalCM)):
+                        parent_vals.append(torch.eye(self.modules[u].n_categories)[obs[u].flatten()])
+                    else:
+                        parent_vals.append(obs[u])
                 if isinstance(self.modules[v], CausalModuleBase):
                     module: CausalModuleBase = self.modules[v]
-                    obs[v] = module.condition(parent_vals).sample()
+                    obs[v] = module.condition(*parent_vals).sample()
                 else:
                     module: ConditionalTransformedCM = self.modules[v]
-                    obs[v] = module.condition(parent_vals) \
-                                   .condition(parent_vals).sample()
+                    obs[v] = module.condition(*parent_vals) \
+                                   .condition(*parent_vals).sample()
 
         obs_out = dict(**obs_int)
         obs_noise = self.recover_noise(obs)
         for v in self.top_sort():
             if v not in obs_out:
                 v_parents = self.parents(v)
-                parent_vals = [obs_out[u] for u in v_parents]
-                if len(parent_vals) > 0:
-                    parent_vals = torch.concat(parent_vals, dim=-1)
+                parent_vals = []
+                for u in v_parents:
+                    if isinstance(self.modules[u], (ConditionalCategoricalCM, CategoricalCM)):
+                        parent_vals.append(torch.eye(self.modules[u].n_categories)[obs[u].flatten()])
+                    else:
+                        parent_vals.append(obs[u])
                 if isinstance(self.modules[v], CausalModuleBase):
                     module: CausalModuleBase = self.modules[v]
                     val = module.generate(obs_noise[v], *parent_vals)

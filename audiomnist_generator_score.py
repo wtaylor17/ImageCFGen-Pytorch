@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 import torch
 import numpy as np
 import os
-from image_scms.audio_mnist import ATTRIBUTE_DIMS, AudioMNISTData, Generator
+from image_scms.audio_mnist import ATTRIBUTE_DIMS, AudioMNISTData, Generator, VALIDATION_RUNS
 from image_scms.training_utils import batchify_dict
 from attribute_scms.audio_mnist import AudioMNISTCausalGraph
 
@@ -50,7 +50,8 @@ if __name__ == "__main__":
         spect_mean, spect_ss, n_batches = 0, 0, 0
 
         print('Computing spectrogram statistics...')
-        for batch in data.stream(batch_size=128):
+        for batch in data.stream(batch_size=128,
+                                 excluded_runs=VALIDATION_RUNS):
             n_batches += 1
             spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1))
             spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1))

@@ -12,6 +12,10 @@ from scipy.io.wavfile import read as read_wav, write as write_wav
 from functools import partial
 
 
+np.random.seed(42)
+VALIDATION_RUNS = np.random.randint(0, 50, size=(10,)).tolist()
+
+
 def init_weights(layer, std=0.001):
     name = layer.__class__.__name__
     if name.startswith('Conv'):
@@ -66,7 +70,6 @@ class AudioMNISTData:
         self.path_to_zip = path_to_zip
         self.device = device
         self.data = {
-            "audio": [],
             "country_of_origin": [],
             "native_speaker": [],
             "accent": [],
@@ -77,13 +80,6 @@ class AudioMNISTData:
         self.transforms = {k: lambda x: x for k in self.data}
         self.inv_transforms = {k: lambda x: x for k in self.data}
 
-        self.audio_to_spectrogram = torchaudio.transforms.Spectrogram(
-            n_fft=255, win_length=128, pad=96
-        ).to(self.device)
-        self.spectrogram_to_audio = torchaudio.transforms.GriffinLim(
-            n_fft=255, win_length=128
-        ).to(self.device)
-
         with ZipFile(self.path_to_zip, "r") as zf:
             json_str = zf.read("data/audioMNIST_meta.txt").decode("utf-8")
             meta_data = json.loads(json_str)
@@ -93,23 +89,6 @@ class AudioMNISTData:
 
                 for dig in range(0, 10):
                     for run in range(0, 50):
-                        wav_path = f"data/{subject_name}/{dig}_{subject_name}_{run}.wav"
-                        sr, wav_arr = read_wav(BytesIO(zf.read(wav_path)))
-                        wav_arr = librosa.core.resample(y=wav_arr.astype(np.float32),
-                                                        orig_sr=sr, target_sr=8000,
-                                                        res_type="scipy")
-                        # zero padding
-                        if len(wav_arr) > 8000:
-                            raise ValueError("data length cannot exceed padding length.")
-                        elif len(wav_arr) < 8000:
-                            embedded_data = np.zeros(8000)
-                            embedded_data[:len(wav_arr)] = wav_arr
-                        elif len(wav_arr) == 8000:
-                            # nothing to do here
-                            embedded_data = wav_arr
-
-                        self.data["audio"].append(embedded_data)
-
                         country = subject_meta["origin"].split(", ")[1].lower()
                         if country == "spanien":
                             country = "spain"
@@ -130,10 +109,6 @@ class AudioMNISTData:
                         self.data["digit"].append(dig)
                         self.data["age"].append(age)
                         self.data["gender"].append(gender)
-
-            self.data["audio"] = np.stack(self.data["audio"], axis=0)
-            self.transforms["audio"] = lambda x: (self.audio_to_spectrogram(torch.from_numpy(x).float().to(self.device)) + 1e-6).log()
-            self.inv_transforms["audio"] = lambda x: self.spectrogram_to_audio(torch.from_numpy(x).to(self.device).exp())
 
             for k in self.data:
                 self.data[k] = np.asarray(self.data[k])
@@ -156,17 +131,30 @@ class AudioMNISTData:
             discretizer = KBinsDiscretizer(encode="onehot-dense",
                                            strategy="uniform")
             discretizer.fit(self.data["age"])
+            print("number of age bins: ", discretizer.n_bins)
             self.transforms["age"] = lambda x: torch.from_numpy(discretizer.transform(x)).to(self.device)
             self.inv_transforms["age"] = lambda x: torch.from_numpy(discretizer.inverse_transform(x)).to(self.device)
 
-    def stream(self, batch_size: int = 128, transform: bool = True, shuffle: bool = True):
-        N = len(self.data["audio"])
+    def stream(self,
+               batch_size: int = 128,
+               transform: bool = True,
+               shuffle: bool = True,
+               excluded_runs=None,
+               excluded_subjects=None):
+        excluded_runs = np.array(excluded_runs or [])
+        excluded_subjects = np.array(excluded_subjects or [])
+        data_to_use = {
+            k: v[~np.isin(self.data["run"].flatten(), excluded_runs) &
+                 ~np.isin(self.data["subject"].flatten(), excluded_subjects)]
+            for k, v in self.data.items()
+        }
+        N = len(data_to_use["audio"])
         i = 0
         inds = np.random.permutation(N) if shuffle else np.array(list(range(N)))
         while i < N:
             batch_dict = {
-                k: self.data[k][inds[i:min(N, i + batch_size)]]
-                for k in self.data
+                k: data_to_use[k][inds[i:min(N, i + batch_size)]]
+                for k in data_to_use
             }
             if transform:
                 batch_dict = {

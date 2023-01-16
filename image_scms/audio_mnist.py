@@ -14,6 +14,9 @@ from functools import partial
 from .training_utils import AdversariallyLearnedInference
 
 
+np.random.seed(42)
+VALIDATION_RUNS = np.random.randint(0, 50, size=(10,)).tolist()
+
 LATENT_DIM = 512
 ATTRIBUTE_COUNT = 47
 IMAGE_SHAPE = (128, 128)
@@ -46,7 +49,9 @@ class AudioMNISTData:
             "accent": [],
             "digit": [],
             "age": [],
-            "gender": []
+            "gender": [],
+            "subject": [],
+            "run": []
         }
         self.transforms = {k: lambda x: x for k in self.data}
         self.inv_transforms = {k: lambda x: x for k in self.data}
@@ -104,6 +109,8 @@ class AudioMNISTData:
                         self.data["digit"].append(dig)
                         self.data["age"].append(age)
                         self.data["gender"].append(gender)
+                        self.data["subject"].append(subject_num)
+                        self.data["run"].append(run)
 
             self.data["audio"] = np.stack(self.data["audio"], axis=0)
             self.transforms["audio"] = lambda x: (self.audio_to_spectrogram(torch.from_numpy(x).float().to(self.device)) + 1e-6).log()
@@ -133,14 +140,26 @@ class AudioMNISTData:
             self.transforms["age"] = lambda x: torch.from_numpy(discretizer.transform(x)).to(self.device)
             self.inv_transforms["age"] = lambda x: discretizer.inverse_transform(x)
 
-    def stream(self, batch_size: int = 128, transform: bool = True, shuffle: bool = True):
-        N = len(self.data["audio"])
+    def stream(self,
+               batch_size: int = 128,
+               transform: bool = True,
+               shuffle: bool = True,
+               excluded_runs=None,
+               excluded_subjects=None):
+        excluded_runs = np.array(excluded_runs or [])
+        excluded_subjects = np.array(excluded_subjects or [])
+        data_to_use = {
+            k: v[~np.isin(self.data["run"].flatten(), excluded_runs) &
+                 ~np.isin(self.data["subject"].flatten(), excluded_subjects)]
+            for k, v in self.data.items()
+        }
+        N = len(data_to_use["audio"])
         i = 0
         inds = np.random.permutation(N) if shuffle else np.array(list(range(N)))
         while i < N:
             batch_dict = {
-                k: self.data[k][inds[i:min(N, i + batch_size)]]
-                for k in self.data
+                k: data_to_use[k][inds[i:min(N, i + batch_size)]]
+                for k in data_to_use
             }
             if transform:
                 batch_dict = {
