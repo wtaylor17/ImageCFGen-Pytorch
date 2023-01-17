@@ -358,7 +358,8 @@ def train(path_to_zip: str,
     spect_mean, spect_ss, n_batches = 0, 0, 0
 
     print('Computing spectrogram statistics...')
-    for batch in data.stream(batch_size=batch_size):
+    for batch in data.stream(batch_size=batch_size,
+                             excluded_runs=VALIDATION_RUNS):
         n_batches += 1
         spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1))
         spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1))
@@ -375,7 +376,7 @@ def train(path_to_zip: str,
     def img_to_spect(img_):
         return img_ * stds_kept * (spect_std + 1e-6) + spect_mean
 
-    attr_cols = [k for k in data.data if k != "audio"]
+    attr_cols = [k for k in data.data if k in ATTRIBUTE_DIMS]
     print('Beginning training')
     for epoch in range(n_epochs):
         D_score = 0.
@@ -383,7 +384,9 @@ def train(path_to_zip: str,
         D.train()
         E.train()
         G.train()
-        for i, batch in enumerate(tqdm(data.stream(batch_size=batch_size), total=n_batches)):
+        for i, batch in enumerate(tqdm(data.stream(batch_size=batch_size,
+                                                   excluded_runs=VALIDATION_RUNS),
+                                       total=n_batches)):
             images = batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
             c = {k: torch.clone(batch[k]).int().to(device)
                  for k in attr_cols if k in ATTRIBUTE_DIMS}
@@ -447,7 +450,8 @@ def train(path_to_zip: str,
 
             with torch.no_grad():
                 # generate images from same class as real ones
-                demo_batch = next(data.stream(batch_size=n_show))
+                demo_batch = next(data.stream(batch_size=n_show,
+                                              excluded_runs=list(set(range(50)) - set(VALIDATION_RUNS))))
                 images = demo_batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
                 c = {k: torch.clone(demo_batch[k]).int().to(device)
                      for k in attr_cols if k in ATTRIBUTE_DIMS}
