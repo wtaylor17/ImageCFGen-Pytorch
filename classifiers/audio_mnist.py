@@ -48,15 +48,25 @@ class AudioMNISTData:
         self.path_to_zip = path_to_zip
         self.device = device
         self.data = {
+            "audio": [],
             "country_of_origin": [],
             "native_speaker": [],
             "accent": [],
             "digit": [],
             "age": [],
-            "gender": []
+            "gender": [],
+            "subject": [],
+            "run": []
         }
         self.transforms = {k: lambda x: x for k in self.data}
         self.inv_transforms = {k: lambda x: x for k in self.data}
+
+        self.audio_to_spectrogram = torchaudio.transforms.Spectrogram(
+            n_fft=255, win_length=128, pad=96
+        ).to(self.device)
+        self.spectrogram_to_audio = torchaudio.transforms.GriffinLim(
+            n_fft=255, win_length=128
+        ).to(self.device)
 
         with ZipFile(self.path_to_zip, "r") as zf:
             json_str = zf.read("data/audioMNIST_meta.txt").decode("utf-8")
@@ -67,6 +77,23 @@ class AudioMNISTData:
 
                 for dig in range(0, 10):
                     for run in range(0, 50):
+                        wav_path = f"data/{subject_name}/{dig}_{subject_name}_{run}.wav"
+                        sr, wav_arr = read_wav(BytesIO(zf.read(wav_path)))
+                        wav_arr = librosa.core.resample(y=wav_arr.astype(np.float32),
+                                                        orig_sr=sr, target_sr=8000,
+                                                        res_type="scipy")
+                        # zero padding
+                        if len(wav_arr) > 8000:
+                            raise ValueError("data length cannot exceed padding length.")
+                        elif len(wav_arr) < 8000:
+                            embedded_data = np.zeros(8000)
+                            embedded_data[:len(wav_arr)] = wav_arr
+                        elif len(wav_arr) == 8000:
+                            # nothing to do here
+                            embedded_data = wav_arr
+
+                        self.data["audio"].append(embedded_data)
+
                         country = subject_meta["origin"].split(", ")[1].lower()
                         if country == "spanien":
                             country = "spain"
@@ -87,6 +114,12 @@ class AudioMNISTData:
                         self.data["digit"].append(dig)
                         self.data["age"].append(age)
                         self.data["gender"].append(gender)
+                        self.data["subject"].append(subject_num)
+                        self.data["run"].append(run)
+
+            self.data["audio"] = np.stack(self.data["audio"], axis=0)
+            self.transforms["audio"] = lambda x: (self.audio_to_spectrogram(torch.from_numpy(x).float().to(self.device)) + 1e-6).log()
+            self.inv_transforms["audio"] = lambda x: self.spectrogram_to_audio(torch.from_numpy(x).to(self.device).exp())
 
             for k in self.data:
                 self.data[k] = np.asarray(self.data[k])
@@ -102,16 +135,15 @@ class AudioMNISTData:
                     return torch.from_numpy(oh.transform(x)).to(self.device)
 
                 def inv_transform(x, oh=None):
-                    return torch.from_numpy(oh.inverse_transform(x)).to(self.device)
+                    return oh.inverse_transform(x)
                 self.transforms[feature] = partial(transform, oh=one_hot)
                 self.inv_transforms[feature] = partial(inv_transform, oh=one_hot)
 
             discretizer = KBinsDiscretizer(encode="onehot-dense",
                                            strategy="uniform")
             discretizer.fit(self.data["age"])
-            print("number of age bins: ", discretizer.n_bins)
             self.transforms["age"] = lambda x: torch.from_numpy(discretizer.transform(x)).to(self.device)
-            self.inv_transforms["age"] = lambda x: torch.from_numpy(discretizer.inverse_transform(x)).to(self.device)
+            self.inv_transforms["age"] = lambda x: discretizer.inverse_transform(x)
 
     def stream(self,
                batch_size: int = 128,
@@ -165,15 +197,32 @@ def train(zip_path: str,
     criterion = nn.CrossEntropyLoss()
     opt = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    n_batches = 0
-    for _ in data.stream(batch_size=batch_size):
+    spect_mean, spect_ss, n_batches = 0, 0, 0
+    print('Computing spectrogram statistics...')
+    for batch in data.stream(batch_size=batch_size,
+                             excluded_runs=VALIDATION_RUNS):
         n_batches += 1
+        spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1))
+        spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1))
+
+    spect_mean = (spect_mean / n_batches).float().to(device)  # E[X]
+    spect_ss = (spect_ss / n_batches).float().to(device)  # E[X^2]
+    spect_std = torch.sqrt(spect_ss - spect_mean.square())
+    stds_kept = 3
+
+    def spect_to_img(spect_):
+        spect_ = (spect_ - spect_mean) / (spect_std + 1e-6)
+        return torch.clip(spect_, -stds_kept, stds_kept) / float(stds_kept)
+
+    def img_to_spect(img_):
+        return img_ * stds_kept * (spect_std + 1e-6) + spect_mean
 
     for e in range(epochs):
-        tq = tqdm(data.stream(batch_size=batch_size), total=n_batches)
+        tq = tqdm(data.stream(batch_size=batch_size,
+                              excluded_runs=VALIDATION_RUNS), total=n_batches)
         for batch in tq:
             opt.zero_grad()
-            pred = model(batch["audio"].reshape((-1, 1, 128, 128)))
+            pred = model(spect_to_img(batch["audio"].reshape((-1, 1, 128, 128))))
             loss = criterion(pred, batch[attribute])
             loss.backward()
             opt.step()
@@ -182,5 +231,16 @@ def train(zip_path: str,
             y = batch[attribute].argmax(dim=1)
             acc = torch.eq(pred, y).float().mean()
             tq.set_postfix(dict(loss=loss.item(), acc=acc.item()))
-        print(f"Epoch {e+1}/{epochs} complete.")
+        valid_correct = 0
+        n_valid = 0
+        with torch.no_grad():
+            for batch in data.stream(batch_size=batch_size,
+                                     excluded_runs=list(set(range(50)) - set(VALIDATION_RUNS))):
+                pred = model(spect_to_img(batch["audio"].reshape((-1, 1, 128, 128))))
+                pred = pred.argmax(dim=1)
+                y = batch[attribute].argmax(dim=1)
+                valid_correct += torch.eq(pred, y).float().sum().item()
+                n_valid += len(y)
+
+        print(f"Epoch {e+1}/{epochs} complete. Validation accuracy = {round(valid_correct / n_valid, 4)}")
     return model
