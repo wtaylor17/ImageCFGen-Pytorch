@@ -428,11 +428,11 @@ def train(path_to_zip: str,
                 fig.text(0.01, 0.25, 'Reconstructed', ha='left')
 
                 for i in range(n_show):
-                    ax[0, i].imshow(gener[i], vmin=vmin, vmax=vmax)
+                    ax[0, i].imshow(gener[i].reshape((128, 128)), vmin=vmin, vmax=vmax)
                     ax[0, i].axis('off')
-                    ax[1, i].imshow(real[i], vmin=vmin, vmax=vmax)
+                    ax[1, i].imshow(real[i].reshape((128, 128)), vmin=vmin, vmax=vmax)
                     ax[1, i].axis('off')
-                    ax[2, i].imshow(recon[i], vmin=vmin, vmax=vmax)
+                    ax[2, i].imshow(recon[i].reshape((128, 128)), vmin=vmin, vmax=vmax)
                     ax[2, i].axis('off')
                 plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                 plt.close()
