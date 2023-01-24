@@ -398,20 +398,20 @@ def train(path_to_zip: str,
                      for k in attr_cols if k in ATTRIBUTE_DIMS}
                 x = spect_to_img(images)
 
-                z_mean = torch.zeros((len(x), LATENT_DIM)).float()
+                z_mean = torch.zeros((len(x), LATENT_DIM, 1, 1)).float()
                 gener = 0
                 for i in range(32):
                     z = torch.normal(z_mean, z_mean + 1).to(device)
                     gener = gener + vae.decoder(z, c)
                 gener = img_to_spect(gener / 32)
-                gener = gener.cpu().detach().numpy()
+                gener = gener.cpu().detach().numpy().reshape((n_show, *IMAGE_SHAPE))
 
                 recon = 0
                 for i in range(32):
                     z = vae.encoder.sample(x, c)
                     recon = recon + vae.decoder(z, c)
                 recon = img_to_spect(recon / 32)
-                recon = recon.cpu().detach().numpy()
+                recon = recon.cpu().detach().numpy().reshape((n_show, *IMAGE_SHAPE))
 
                 real = img_to_spect(x.reshape((n_show, *IMAGE_SHAPE))).cpu().numpy()
                 vmin, vmax = real.min(), real.max()
@@ -428,11 +428,11 @@ def train(path_to_zip: str,
                 fig.text(0.01, 0.25, 'Reconstructed', ha='left')
                 print(gener.shape, real.shape, recon.shape)
                 for i in range(n_show):
-                    ax[0, i].imshow(gener[i].reshape((128, 128)), vmin=vmin, vmax=vmax)
+                    ax[0, i].imshow(gener[i], vmin=vmin, vmax=vmax)
                     ax[0, i].axis('off')
-                    ax[1, i].imshow(real[i].reshape((128, 128)), vmin=vmin, vmax=vmax)
+                    ax[1, i].imshow(real[i], vmin=vmin, vmax=vmax)
                     ax[1, i].axis('off')
-                    ax[2, i].imshow(recon[i].reshape((128, 128)), vmin=vmin, vmax=vmax)
+                    ax[2, i].imshow(recon[i], vmin=vmin, vmax=vmax)
                     ax[2, i].axis('off')
                 plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                 plt.close()
