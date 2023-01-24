@@ -426,7 +426,7 @@ def train(path_to_zip: str,
                 fig.text(0.01, 0.75, 'Generated', ha='left')
                 fig.text(0.01, 0.5, 'Original', ha='left')
                 fig.text(0.01, 0.25, 'Reconstructed', ha='left')
-
+                print(gener.shape, real.shape, recon.shape)
                 for i in range(n_show):
                     ax[0, i].imshow(gener[i].reshape((128, 128)), vmin=vmin, vmax=vmax)
                     ax[0, i].axis('off')
