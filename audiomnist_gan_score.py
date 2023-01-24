@@ -119,10 +119,8 @@ if __name__ == "__main__":
                     if k in ATTRIBUTE_DIMS
                 }
                 rec = G(codes, cf_sample)
-                rec = img_to_spect(rec)
                 print(rec.shape)
                 print("\n".join(f"{k}: {v.shape}" for k, v in cf_sample.items()))
-                print(gender_score)
                 if gender_clf:
                     gender_preds = gender_clf(rec).argmax(1)
                     gender_score += (gender_preds == cf_sample["gender"].argmax(1)).sum()
