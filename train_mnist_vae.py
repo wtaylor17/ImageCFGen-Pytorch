@@ -16,14 +16,10 @@ parser.add_argument('--steps', type=int,
 parser.add_argument('--kl-weight',
                     type=float,
                     default=10)
-parser.add_argument('--latent-dim',
-                    type=int,
-                    default=16)
 
 if __name__ == '__main__':
     sns.set()
     args = parser.parse_args()
-    latent_dim = args.latent_dim
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     a_train = torch.from_numpy(np.load(
@@ -39,16 +35,26 @@ if __name__ == '__main__':
         os.path.join(args.data_dir, 'mnist-x-test.npy')
     )).float().to(device)
 
+    a_train = {
+        "digit": a_train[:, :10].int(),
+        "thickness": a_train[:, 10:11].float(),
+        "intensity": a_train[:, 11:12].float(),
+        "slant": a_train[:, 12:13].float()
+    }
+    a_test = {
+        "digit": a_test[:, :10].int(),
+        "thickness": a_test[:, 10:11].float(),
+        "intensity": a_test[:, 11:12].float(),
+        "slant": a_test[:, 12:13].float()
+    }
+
     vae, optimizer = mnist.train(x_train,
                                  a_train,
                                  x_test=x_test,
                                  a_test=a_test,
-                                 latent_dim=latent_dim,
-                                 scale_a_after=10,
                                  n_epochs=args.steps,
                                  device=device,
                                  kl_weight=args.kl_weight)
     torch.save({
-        'vae_state_dict': vae.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict()
+        'vae': vae
     }, 'models_state_dict_VAE_MNIST_tis.tar')
