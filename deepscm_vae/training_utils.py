@@ -1,14 +1,30 @@
 import torch
 
 
-def batchify(*tensors, batch_size=256, device='cpu'):
+def batchify(*tensors, batch_size=256):
     i = 0
     N = min(map(len, tensors))
     while i < N:
         yield tuple(x[i:i+batch_size] for x in tensors)
         i += batch_size
     if i < N:
-        yield tuple(x[i:N].to(device) for x in tensors)
+        yield tuple(x[i:N] for x in tensors)
+
+
+def batchify_dict(tensor_dict, batch_size=256):
+    i = 0
+    N = min(map(len, tensor_dict.values()))
+    while i < N:
+        yield {
+            k: v[i:i+batch_size]
+            for k, v in tensor_dict.items()
+        }
+        i += batch_size
+    if i < N:
+        yield {
+            k: v[i:N]
+            for k, v in tensor_dict.items()
+        }
 
 
 def init_weights(layer):
