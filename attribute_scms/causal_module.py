@@ -131,12 +131,13 @@ class ConditionalCategoricalCM(CausalModuleBase):
 
     def recover_noise(self, y, *context, **kwargs) -> torch.Tensor:
         inds = list(range(y.size(0)))
-        g = self.gumbel.sample(y.shape + (self.n_categories,)).to(y.device)
-        gk = g[inds, y]
+        g = self.gumbel.sample((y.size(0), self.n_categories)).to(y.device)
+        gk = g[inds, y.flatten()].reshape((-1, 1))
         logits = self.model(*context)
-        noise_k = gk + logits.exp().sum(dim=-1).log() - logits[inds, y]
+        logits_k = logits[inds, y.flatten()].reshape((-1, 1))
+        noise_k = gk + logits.exp().sum(dim=-1).log() - logits_k
         noise_l = -torch.log(torch.exp(-g - logits) +
-                             torch.exp(-gk - logits[inds, y])) - logits
+                             torch.exp(-gk - logits_k)) - logits
         noise_l[inds, y] = noise_k
         return noise_l
 

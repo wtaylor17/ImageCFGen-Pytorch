@@ -84,18 +84,17 @@ if __name__ == "__main__":
             gen = 0
             for _ in range(mc_rounds):
                 z = torch.randn(size=(len(attr_batch["gender"]), 512, 1, 1))
-                gen = gen + G(z, attrs)
+                gen = gen + G(z, attr_batch)
             gen = gen / mc_rounds
-            spect = img_to_spect(gen)
 
             if gender_clf:
-                gender_preds = gender_clf(spect).argmax(1)
+                gender_preds = gender_clf(gen).argmax(1)
                 gender_acc += (gender_preds == attr_batch["gender"].argmax(1)).sum()
             if digit_clf:
-                digit_preds = digit_clf(spect).argmax(1)
+                digit_preds = digit_clf(gen).argmax(1)
                 digit_acc += (digit_preds == attr_batch["digit"].argmax(1)).sum()
             if accent_clf:
-                accent_preds = accent_clf(spect).argmax(1)
+                accent_preds = accent_clf(gen).argmax(1)
                 accent_acc += (accent_preds == attr_batch["accent"].argmax(1)).sum()
 
         gender_acc = gender_acc / num_samples

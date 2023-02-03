@@ -29,9 +29,9 @@ if __name__ == '__main__':
                                device=device,
                                steps=args.steps)
 
-    torch.save({"graph": causal_graph}, 'MorphoMNIST_attribute_scm_NEW.tar')
+    torch.save({"graph": causal_graph}, 'mnist-attribute-scm.tar')
 
-    sample = causal_graph.sample(10000)
+    sample = causal_graph.sample(n=10000)
 
     for attr, idx in zip(["thickness", "intensity", "slant"], [10, 11, 12]):
         sns.histplot(a_train[:, idx].cpu().numpy(),

@@ -42,6 +42,7 @@ def train(data_dir: str,
         batches = list(batchify(x_train, a_train, batch_size=batch_size))
         tq = tqdm(batches)
         for x, y in tq:
+            x = 2 * x - 1
             opt.zero_grad()
             pred = model(x)
             loss = criterion(pred, y)

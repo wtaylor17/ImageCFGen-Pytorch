@@ -98,7 +98,9 @@ class AudioMNISTData:
             "accent": [],
             "digit": [],
             "age": [],
-            "gender": []
+            "gender": [],
+            "subject": [],
+            "run": []
         }
         self.transforms = {k: lambda x: x for k in self.data}
         self.inv_transforms = {k: lambda x: x for k in self.data}
@@ -132,6 +134,8 @@ class AudioMNISTData:
                         self.data["digit"].append(dig)
                         self.data["age"].append(age)
                         self.data["gender"].append(gender)
+                        self.data["subject"].append(subject_num)
+                        self.data["run"].append(run)
 
             for k in self.data:
                 self.data[k] = np.asarray(self.data[k])
@@ -147,16 +151,16 @@ class AudioMNISTData:
                     return torch.from_numpy(oh.transform(x)).to(self.device)
 
                 def inv_transform(x, oh=None):
-                    return torch.from_numpy(oh.inverse_transform(x)).to(self.device)
+                    return oh.inverse_transform(x)
+
                 self.transforms[feature] = partial(transform, oh=one_hot)
                 self.inv_transforms[feature] = partial(inv_transform, oh=one_hot)
 
             discretizer = KBinsDiscretizer(encode="onehot-dense",
                                            strategy="uniform")
             discretizer.fit(self.data["age"])
-            print("number of age bins: ", discretizer.n_bins)
             self.transforms["age"] = lambda x: torch.from_numpy(discretizer.transform(x)).to(self.device)
-            self.inv_transforms["age"] = lambda x: torch.from_numpy(discretizer.inverse_transform(x)).to(self.device)
+            self.inv_transforms["age"] = lambda x: discretizer.inverse_transform(x)
 
     def stream(self,
                batch_size: int = 128,
@@ -171,7 +175,7 @@ class AudioMNISTData:
                  ~np.isin(self.data["subject"].flatten(), excluded_subjects)]
             for k, v in self.data.items()
         }
-        N = len(data_to_use["audio"])
+        N = len(data_to_use["run"])
         i = 0
         inds = np.random.permutation(N) if shuffle else np.array(list(range(N)))
         while i < N:
@@ -192,14 +196,11 @@ class AudioMNISTCausalGraph(CausalModuleGraph):
     def __init__(self, ds: dict, device: str = "cpu"):
         super().__init__()
         country_dist = categorical_mle(ds["country_of_origin"].argmax(dim=1), device=device)
-        print("native speaker has", ds["native_speaker"].size(1), "categories")
         native_speaker_dist = conditional_categorical_mle(
             ds["native_speaker"].size(1),
             ds["country_of_origin"].size(1),
             device=device
         )
-        for m in native_speaker_dist.model.modules():
-            print(m)
         accent_dist = conditional_double_categorical_mle(
             ds["accent"].size(1),
             ds["country_of_origin"].size(1),

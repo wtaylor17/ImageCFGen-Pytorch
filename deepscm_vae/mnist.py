@@ -79,7 +79,7 @@ class VAEDecoder(nn.Module):
         )
 
     def forward(self, z: torch.Tensor, c: AttributeDict):
-        processed_digit = self.digit_embedding(c["digit"].argmax(1)).reshape((-1, 256, 1, 1))
+        processed_digit = c["digit"].matmul(self.digit_embedding.weight).reshape((-1, 256, 1, 1))
         processed_continuous = {
             k: continuous_feature_map(v, size=(1, 1))
             for k, v in c.items()
@@ -144,7 +144,7 @@ def train(x_train: torch.Tensor,
           image_output_path='.',
           num_samples_per_step=4,
           kl_weight=10,
-          batch_size=256):
+          batch_size=64):
     vae = MorphoMNISTVAE(device=device)
     vae.encoder.apply(init_weights)
     vae.decoder.apply(init_weights)

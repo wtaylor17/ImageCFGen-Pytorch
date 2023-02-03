@@ -3,13 +3,12 @@ import numpy as np
 import pyro.distributions as dist
 import pyro.distributions.transforms as T
 from tqdm import tqdm
-from .causal_module import (CausalModuleBase,
-                            ConditionalTransformedCM,
+from .causal_module import (ConditionalTransformedCM,
                             TransformedCM,
                             TransformedDistribution,
                             CategoricalCM)
 from .graph import CausalModuleGraph
-from .training_utils import batchify, dist_parameters
+from .training_utils import batchify
 
 
 class MNISTCausalGraph(CausalModuleGraph):
@@ -45,7 +44,7 @@ class MNISTCausalGraph(CausalModuleGraph):
         self.add_module("thickness", TransformedCM(t_dist))
         self.add_module("intensity", ConditionalTransformedCM(i_dist))
         self.add_module("slant", TransformedCM(s_dist))
-        self.add_module("label", CategoricalCM(label_dist))
+        self.add_module("digit", CategoricalCM(label_dist))
         self.add_edge("thickness", "intensity")
 
 

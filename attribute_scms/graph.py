@@ -72,16 +72,19 @@ class CausalModuleGraph:
                 v_parents = self.parents(v)
                 if all(u in obs for u in v_parents):
                     self_val = obs[v]
-                    parent_vals = [obs[u] for u in v_parents]
-                    if len(parent_vals) > 0:
-                        parent_vals = torch.concat(parent_vals, dim=-1)
+                    parent_vals = []
+                    for u in v_parents:
+                        if isinstance(self.modules[u], (ConditionalCategoricalCM, CategoricalCM)):
+                            parent_vals.append(torch.eye(self.modules[u].n_categories)[obs[u].flatten()])
+                        else:
+                            parent_vals.append(obs[u])
                     if isinstance(self.modules[v], CausalModuleBase):
                         module: CausalModuleBase = self.modules[v]
-                        noise_out[v] = module.recover_noise(self_val, parent_vals)
+                        noise_out[v] = module.recover_noise(self_val, *parent_vals)
                     else:
                         module: ConditionalTransformedCM = self.modules[v]
-                        noise_out[v] = module.condition(parent_vals)\
-                                             .recover_noise(self_val, parent_vals)
+                        noise_out[v] = module.condition(*parent_vals)\
+                                             .recover_noise(self_val, *parent_vals)
 
         return noise_out
 
@@ -95,7 +98,12 @@ class CausalModuleGraph:
                     if isinstance(self.modules[v], (ConditionalCategoricalCM, CategoricalCM)) \
                             and self_val.ndim > 1:
                         self_val = self_val.argmax(1)
-                    parent_vals = [obs[u] for u in v_parents]
+                    parent_vals = []
+                    for u in v_parents:
+                        if isinstance(self.modules[u], (ConditionalCategoricalCM, CategoricalCM)):
+                            parent_vals.append(torch.eye(self.modules[u].n_categories)[obs[u].flatten()])
+                        else:
+                            parent_vals.append(obs[u])
                     if isinstance(self.modules[v], CausalModuleBase):
                         module: CausalModuleBase = self.modules[v]
                         lp_out[v] = module.forward(*parent_vals).log_prob(self_val)
@@ -113,7 +121,6 @@ class CausalModuleGraph:
 
         obs_out = dict(**(obs_in or {}))
         for v in self.top_sort():
-            print("sampling", v)
             if v in obs_out:  # this value is being held constant
                 continue
             v_parents = self.parents(v)
@@ -132,7 +139,6 @@ class CausalModuleGraph:
                 module: ConditionalTransformedCM = self.modules[v]
                 obs_out[v] = module.condition(*parent_vals) \
                                    .condition(*parent_vals).sample((n,))
-            print(obs_out[v].shape)
         return obs_out
 
     def sample_cf(self,
@@ -164,15 +170,15 @@ class CausalModuleGraph:
                 parent_vals = []
                 for u in v_parents:
                     if isinstance(self.modules[u], (ConditionalCategoricalCM, CategoricalCM)):
-                        parent_vals.append(torch.eye(self.modules[u].n_categories)[obs[u].flatten()])
+                        parent_vals.append(torch.eye(self.modules[u].n_categories)[obs_out[u].flatten()])
                     else:
-                        parent_vals.append(obs[u])
+                        parent_vals.append(obs_out[u])
                 if isinstance(self.modules[v], CausalModuleBase):
                     module: CausalModuleBase = self.modules[v]
                     val = module.generate(obs_noise[v], *parent_vals)
                 else:
                     module: ConditionalTransformedCM = self.modules[v]
-                    val = module.condition(parent_vals).generate(obs_noise[v], *parent_vals)
+                    val = module.condition(*parent_vals).generate(obs_noise[v], *parent_vals)
                 obs_out[v] = val
 
         return obs_out
