@@ -36,13 +36,13 @@ if __name__ == '__main__':
     )).float().to(device)
 
     a_train = {
-        "digit": a_train[:, :10].float(),
+        "digit": a_train[:, :10].int(),
         "thickness": a_train[:, 10:11].float(),
         "intensity": a_train[:, 11:12].float(),
         "slant": a_train[:, 12:13].float()
     }
     a_test = {
-        "digit": a_test[:, :10].float(),
+        "digit": a_test[:, :10].int(),
         "thickness": a_test[:, 10:11].float(),
         "intensity": a_test[:, 11:12].float(),
         "slant": a_test[:, 12:13].float()
@@ -54,7 +54,8 @@ if __name__ == '__main__':
                                  a_test=a_test,
                                  n_epochs=args.steps,
                                  device=device,
-                                 kl_weight=args.kl_weight)
+                                 kl_weight=args.kl_weight,
+                                 image_output_path="../mnist-vae")
     torch.save({
         'vae': vae
-    }, 'models_state_dict_VAE_MNIST_tis.tar')
+    }, 'mnist-vae.tar')
