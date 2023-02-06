@@ -36,13 +36,13 @@ if __name__ == '__main__':
     )).float().to(device)
 
     a_train = {
-        "digit": a_train[:, :10].int(),
+        "digit": a_train[:, :10].float(),
         "thickness": a_train[:, 10:11].float(),
         "intensity": a_train[:, 11:12].float(),
         "slant": a_train[:, 12:13].float()
     }
     a_test = {
-        "digit": a_test[:, :10].int(),
+        "digit": a_test[:, :10].float(),
         "thickness": a_test[:, 10:11].float(),
         "intensity": a_test[:, 11:12].float(),
         "slant": a_test[:, 12:13].float()

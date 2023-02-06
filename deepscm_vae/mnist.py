@@ -206,12 +206,9 @@ def train(x_train: torch.Tensor,
                 x = 2 * xdemo.reshape((-1, 1, 28, 28)).float().to(device) / 255 - 1
 
                 z_mean = torch.zeros((len(x), LATENT_DIM, 1, 1)).float()
-
-                gener = 0
-                for i in range(32):
-                    z = torch.normal(z_mean, z_mean + 1).to(device)
-                    gener = gener + vae.decoder(z, c)
-                gener = gener.cpu().detach().numpy().reshape((n_show, 28, 28)) / 32
+                z = torch.normal(z_mean, z_mean + 1).to(device)
+                gener = vae.decoder(z, c)
+                gener = gener.cpu().detach().numpy().reshape((n_show, 28, 28))
 
                 recon = 0
                 for i in range(32):

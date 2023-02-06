@@ -1,76 +1,100 @@
 import torch
 import torch.nn as nn
 from tqdm import tqdm
+from typing import Dict
+import numpy as np
 
-from .training_utils import attributes_image
 from .training_utils import AdversariallyLearnedInference
 from .training_utils import init_weights
-from .training_utils import batchify
+from .training_utils import batchify, batchify_dict
+
+
+LATENT_DIM = 512
+N_CONTINUOUS = 3
+AttributeDict = Dict[str, torch.Tensor]
+
+
+def continuous_feature_map(c: torch.Tensor, size: tuple = (28, 28)):
+    return c.reshape((c.size(0), 1, 1, 1)).repeat(1, 1, *size)
 
 
 class Encoder(nn.Module):
     def __init__(self):
-        super(Encoder, self).__init__()
+        super().__init__()
+        self.digit_embedding = nn.Sequential(
+            nn.Embedding(10, 256),
+            nn.Unflatten(1, (1, 16, 16)),
+            nn.Upsample(size=(28, 28)),
+            nn.Tanh()
+        )
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(2),
-            nn.Conv2d(2, 32, (5, 5), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(32),
-            nn.Conv2d(32, 64, (4, 4), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(64),
-            nn.Conv2d(64, 128, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(128),
-            nn.Conv2d(128, 256, (4, 4), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(256),
-            nn.Conv2d(256, 512, (3, 3), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(512),
-            nn.Conv2d(512, 512, (1, 1), (1, 1))
+            nn.Conv2d(1 + N_CONTINUOUS + 1, 64, (3, 3), (2, 2), 1),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(64, 128, (4, 4), (2, 2), 1),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(128, 256, (4, 4), (2, 2), 1),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(256, 512, (4, 4), (2, 2), 1),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(512, LATENT_DIM, (1, 1), (2, 2)),
         )
 
     @property
     def device(self):
         return next(self.parameters()).device
 
-    def forward(self, X, a):
-        return self.layers(attributes_image(X, a, device=self.device))
+    def forward(self, X: torch.Tensor, c: AttributeDict):
+        processed_continuous = {
+            k: continuous_feature_map(v, size=(28, 28))
+            for k, v in c.items()
+            if k != "digit"
+        }
+        processed_digit = self.digit_embedding(c["digit"].argmax(1))
+        features = torch.concat([X, processed_digit] + [
+            processed_continuous[k]
+            for k in sorted(processed_continuous.keys())], dim=1)
+        return self.layers(features)
 
 
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
+        self.digit_embedding = nn.Embedding(10, 256)
         self.layers = nn.Sequential(
-            nn.BatchNorm2d(512 + 13),
-            nn.ConvTranspose2d(512 + 13, 256, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(256),
-            nn.ConvTranspose2d(256, 128, (4, 4), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(128),
-            nn.ConvTranspose2d(128, 64, (4, 4), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(64),
-            nn.ConvTranspose2d(64, 32, (4, 4), (2, 2)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(32),
-            nn.ConvTranspose2d(32, 32, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.1),
-            nn.BatchNorm2d(32),
-            nn.ConvTranspose2d(32, 1, (1, 1), (1, 1)),
-            nn.Sigmoid()
+            nn.ConvTranspose2d(LATENT_DIM + 256 + N_CONTINUOUS, 512, (3, 3), (1, 1)),
+            nn.LeakyReLU(0.2),
+            nn.ConvTranspose2d(512, 256, (3, 3), (2, 2)),
+            nn.LeakyReLU(0.2),
+            nn.ConvTranspose2d(256, 128, (3, 3), (2, 2), (1, 1)),
+            nn.LeakyReLU(0.2),
+            nn.ConvTranspose2d(128, 64, (3, 3), (2, 2), (1, 1)),
+            nn.LeakyReLU(0.2),
+            nn.ConvTranspose2d(64, 1, (4, 4)),
+            nn.Tanh()
         )
 
-    def forward(self, z, a):
-        a = a.reshape((-1, 13, 1, 1))
-        return self.layers(torch.concat([z, a], dim=1))
+    def forward(self, z: torch.Tensor, c: AttributeDict):
+        processed_digit = c["digit"].matmul(self.digit_embedding.weight).reshape((-1, 256, 1, 1))
+        processed_continuous = {
+            k: continuous_feature_map(v, size=(1, 1))
+            for k, v in c.items()
+            if k != "digit"
+        }
+        features = torch.concat([z, processed_digit] + [
+            processed_continuous[k]
+            for k in sorted(processed_continuous.keys())], dim=1)
+        return self.layers(features)
 
 
 class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
+        self.digit_embedding = nn.Sequential(
+            nn.Embedding(10, 256),
+            nn.Unflatten(1, (1, 16, 16)),
+            nn.Upsample(size=(28, 28)),
+            nn.Tanh()
+        )
         self.dz = nn.Sequential(
             nn.Dropout2d(0.2),
             nn.Conv2d(512, 512, (1, 1), (1, 1)),
@@ -81,7 +105,7 @@ class Discriminator(nn.Module):
         )
         self.dx = nn.Sequential(
             nn.Dropout2d(0.2),
-            nn.Conv2d(2, 32, (5, 5), (1, 1)),
+            nn.Conv2d(1 + N_CONTINUOUS + 1, 32, (5, 5), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.Dropout2d(0.2),
             nn.BatchNorm2d(32),
@@ -116,22 +140,31 @@ class Discriminator(nn.Module):
     def device(self):
         return next(self.parameters()).device
 
-    def forward(self, X, z, a):
-        dx = self.dx(attributes_image(X, a, device=self.device))
+    def forward(self, X: torch.Tensor, z: torch.Tensor, c: AttributeDict):
+        processed_continuous = {
+            k: continuous_feature_map(v, size=(28, 28))
+            for k, v in c.items()
+            if k != "digit"
+        }
+        processed_digit = self.digit_embedding(c["digit"].argmax(1))
+        features = torch.concat([X, processed_digit] + [
+            processed_continuous[k]
+            for k in sorted(processed_continuous.keys())], dim=1)
+        dx = self.dx(features)
         dz = self.dz(z)
         return self.dxz(torch.concat([dx, dz], dim=1)).reshape((-1, 1))
 
 
 def train(x_train: torch.Tensor,
-          a_train: torch.Tensor,
+          a_train: AttributeDict,
           x_test=None,
           a_test=None,
-          scale_a_after=10,
           n_epochs=200,
           l_rate=1e-4,
           device='cpu',
           save_images_every=2,
-          image_output_path=''):
+          image_output_path='',
+          batch_size=64):
     E = Encoder().to(device)
     G = Generator().to(device)
     D = Discriminator().to(device)
@@ -155,12 +188,25 @@ def train(x_train: torch.Tensor,
         G.train()
 
         num_batches = 0
-        for i, (images, attrs) in tqdm(list(enumerate(batchify(x_train, a_train)))):
+        perm = np.random.permutation(len(x_train))
+        img_batches = batchify(x_train[perm], batch_size=batch_size)
+        attr_batches = batchify_dict({
+            k: v[perm]
+            for k, v in a_train.items()
+        }, batch_size=batch_size)
+        attr_stats = {
+            k: (v.min(dim=0).values, v.max(dim=0).values)
+            for k, v in a_train.items()
+            if k != "digit"
+        }
+        for i, ((images,), attrs) in tqdm(list(enumerate(zip(img_batches, attr_batches)))):
             num_batches += 1
-            images = images.reshape((-1, 1, 28, 28)).float().to(device) / 255
-            c = torch.clone(attrs.reshape((-1, 13))).float().to(device)
-            c_min, c_max = c[:, scale_a_after:].min(dim=0).values, c[:, scale_a_after:].max(dim=0).values
-            c[:, scale_a_after:] = (c[:, scale_a_after:] - c_min) / (c_max - c_min)
+            images = 2 * images.reshape((-1, 1, 28, 28)).float().to(device) / 255 - 1
+            c = {
+                k: 2 * (attrs[k] - attr_stats[k][0]) / (attr_stats[k][1] - attr_stats[k][0]) - 1
+                for k in attr_stats
+            }
+            c["digit"] = attrs["digit"]
 
             z_mean = torch.zeros((len(images), 512, 1, 1)).float()
             z = torch.normal(z_mean, z_mean + 1).to(device)
@@ -195,19 +241,23 @@ def train(x_train: torch.Tensor,
             with torch.no_grad():
                 # generate images from same class as real ones
                 xdemo = x_test[:n_show]
-                ademo = a_test[:n_show]
-                x = xdemo.reshape((-1, 1, 28, 28)).float().to(device) / 255
-                c = torch.clone(ademo.reshape((-1, 13))).float().to(device)
-                c_min, c_max = a_train[:, scale_a_after:].min(dim=0).values, a_train[:, scale_a_after:].max(dim=0).values
-                c[:, scale_a_after:] = (c[:, scale_a_after:] - c_min) / (c_max - c_min)
-
+                ademo = {
+                    k: v[:n_show]
+                    for k, v in a_test.items()
+                }
+                c = {
+                    k: 2 * (ademo[k] - attr_stats[k][0]) / (attr_stats[k][1] - attr_stats[k][0]) - 1
+                    for k in attr_stats
+                }
+                c["digit"] = ademo["digit"]
+                x = 2 * xdemo.reshape((-1, 1, 28, 28)).float().to(device) / 255 - 1
                 z_mean = torch.zeros((len(x), 512, 1, 1)).float()
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
                 gener = G(z, c).reshape(n_show, 28, 28).cpu().numpy()
                 recon = G(E(x, c), c).reshape(n_show, 28, 28).cpu().numpy()
-                real = xdemo.cpu().numpy() / 255
+                real = 2 * xdemo.cpu().numpy() / 255 - 1
 
                 if save_images_every is not None:
                     import matplotlib.pyplot as plt
@@ -221,11 +271,11 @@ def train(x_train: torch.Tensor,
                     fig.text(0.04, 0.25, 'G(E(x, c), c)', ha='left')
 
                     for i in range(n_show):
-                        ax[0, i].imshow(gener[i], cmap='gray', vmin=0, vmax=1)
+                        ax[0, i].imshow(gener[i], cmap='gray', vmin=-1, vmax=1)
                         ax[0, i].axis('off')
-                        ax[1, i].imshow(real[i], cmap='gray', vmin=0, vmax=1)
+                        ax[1, i].imshow(real[i], cmap='gray', vmin=-1, vmax=1)
                         ax[1, i].axis('off')
-                        ax[2, i].imshow(recon[i], cmap='gray', vmin=0, vmax=1)
+                        ax[2, i].imshow(recon[i], cmap='gray', vmin=-1, vmax=1)
                         ax[2, i].axis('off')
                     plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                     plt.close()

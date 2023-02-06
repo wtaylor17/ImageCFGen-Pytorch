@@ -43,6 +43,11 @@ class TransformedCM(CausalModuleBase):
         super().__init__()
         self.td = td
 
+    def eval(self):
+        for transform in self.td.transforms:
+            if hasattr(transform, 'eval'):
+                transform.eval()
+
     def noise_distribution(self, *args, **kwargs) -> dist.Distribution:
         return self.td.base_dist
 
@@ -106,6 +111,11 @@ class ConditionalTransformedCM:
         for t in self.ctd.transforms:
             if hasattr(t, "clear_cache"):
                 t.clear_cache()
+
+    def eval(self):
+        for transform in self.ctd.transforms:
+            if hasattr(transform, 'eval'):
+                transform.eval()
 
 
 def gumbel_distribution() -> TransformedDistribution:
