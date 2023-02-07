@@ -56,7 +56,8 @@ if __name__ == '__main__':
                                                     n_epochs=args.steps,
                                                     device=device,
                                                     image_output_path=args.output_path,
-                                                    save_images_every=1)
+                                                    save_images_every=1,
+                                                    d_updates_per_g_update=3)
     torch.save({
         'E': E,
         'G': G,

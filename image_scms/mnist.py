@@ -132,8 +132,7 @@ class Discriminator(nn.Module):
             nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
             nn.LeakyReLU(0.1),
             nn.Dropout2d(0.2),
-            nn.Conv2d(1024, 1, (1, 1), (1, 1)),
-            nn.Sigmoid()
+            nn.Conv2d(1024, 1, (1, 1), (1, 1))
         )
 
     @property
@@ -164,7 +163,8 @@ def train(x_train: torch.Tensor,
           device='cpu',
           save_images_every=2,
           image_output_path='',
-          batch_size=64):
+          batch_size=64,
+          d_updates_per_g_update=1):
     E = Encoder().to(device)
     G = Generator().to(device)
     D = Discriminator().to(device)
@@ -178,7 +178,7 @@ def train(x_train: torch.Tensor,
     optimizer_D = torch.optim.Adam(D.parameters(),
                                    lr=l_rate, betas=(0.5, 0.999))
 
-    loss_calc = AdversariallyLearnedInference(E, G, D)
+    gan_loss = nn.BCEWithLogitsLoss()
 
     for epoch in range(n_epochs):
         D_score = 0.
@@ -208,28 +208,44 @@ def train(x_train: torch.Tensor,
             }
             c["digit"] = attrs["digit"]
 
+            valid = torch.autograd.Variable(
+                torch.Tensor(images.size(0), 1).fill_(1.0).to(device),
+                requires_grad=False
+            )
+            fake = torch.autograd.Variable(
+                torch.Tensor(images.size(0), 1).fill_(0.0).to(device),
+                requires_grad=False
+            )
+
             z_mean = torch.zeros((len(images), 512, 1, 1)).float()
             z = torch.normal(z_mean, z_mean + 1).to(device)
 
-            # Discriminator training
+            # Encoder & Generator training
+            if i % d_updates_per_g_update == 0:
+                optimizer_E.zero_grad()
+                D_valid = D(images, E(images, c), c)
+                D_fake = D(G(z, c), z, c)
+                loss_EG = (gan_loss(D_valid, fake) + gan_loss(D_fake, valid)) / 2
+                loss_EG.backward()
+                optimizer_E.step()
+
             optimizer_D.zero_grad()
-            loss_D = loss_calc.discriminator_loss(images, z, c)
+            D_valid = D(images, E(images, c), c)
+            loss_D = gan_loss(D_valid, valid)
+            loss_D.backward()
+            optimizer_D.step()
+            optimizer_D.zero_grad()
+            D_fake = D(G(z, c), z, c)
+            loss_D = gan_loss(D_fake, fake)
             loss_D.backward()
             optimizer_D.step()
 
-            # Encoder & Generator training
-            optimizer_E.zero_grad()
-            loss_EG = loss_calc.generator_loss(images, z, c)
-            loss_EG.backward()
-            optimizer_E.step()
-
             Gz = G(z, c).detach()
             EX = E(images, c).detach()
-            DG = D(Gz, z, c)
-            DE = D(images, EX, c)
+            DG = D(Gz, z, c).sigmoid()
+            DE = D(images, EX, c).sigmoid()
             D_score += DG.mean().item()
             EG_score += DE.mean().item()
-
         print(D_score / num_batches, EG_score / num_batches)
 
         if save_images_every and (epoch + 1) % save_images_every == 0:
