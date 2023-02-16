@@ -1,6 +1,12 @@
 from typing import Dict, List, Tuple
 
 import torch
+from pytorch_msssim import ssim
+
+
+def mse(a: torch.Tensor, b: torch.Tensor):
+    diff = a - b
+    return diff.square().mean(dim=list(range(1, len(diff.shape))))
 
 
 class DeepCounterfactualExplainer:
@@ -17,7 +23,8 @@ class DeepCounterfactualExplainer:
     def explain(self, x: torch.Tensor,
                 attrs: Dict[str, torch.Tensor],
                 target_class: int,
-                sample_points=100) -> Tuple[torch.Tensor, torch.Tensor]:
+                sample_points=100,
+                metric='mixture') -> Tuple[torch.Tensor, torch.Tensor]:
         codes = self.encoder(x, attrs)
         codes = codes.repeat(sample_points, *[1 for _ in codes.shape[1:]])
 
@@ -43,8 +50,16 @@ class DeepCounterfactualExplainer:
             if (preds != target_class).sum() == sample_points:
                 raise ValueError(f"Failed to flip the class label from class {original_class}"
                                  f" to {target_class}")
-
-            probs = probs[preds == target_class]
+            if metric == 'mixture':
+                metric_val = probs
+            elif metric == 'mse':
+                metric_val = mse(x, samples)
+            elif metric == 'ssim':
+                xv = x.repeat(sample_points, *[1 for _ in x.shape[1:]])
+                metric_val = 1 - ssim((xv + 1) / 2, (samples + 1) / 2, data_range=1.0, size_average=False)
+            else:
+                raise ValueError(metric)
+            metric_val = metric_val[preds == target_class]
             samples = samples[preds == target_class]
-            sorted_inds = probs.argsort()
-            return samples[sorted_inds], probs[sorted_inds]
+            sorted_inds = metric_val.argsort()
+            return samples[sorted_inds], metric_val[sorted_inds]

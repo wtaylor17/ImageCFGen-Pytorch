@@ -5,22 +5,17 @@ from explain.cf_example import DeepCounterfactualExplainer
 
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
+import pickle
+from tqdm import tqdm
 
 parser = ArgumentParser()
 parser.add_argument('--data-dir', type=str,
                     help='path to folder with .npy files of data',
                     default='')
-parser.add_argument('--original', type=int, default=3)
-parser.add_argument('--target', type=int, default=8)
 parser.add_argument('--seed', type=int, default=42)
-parser.add_argument('--metric', type=str, default='ssim')
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    original_dig = args.original
-    target_dig = args.target
-    metric = args.metric
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     a_train = torch.from_numpy(np.load(
@@ -60,46 +55,48 @@ if __name__ == '__main__':
     graph = torch.load('mnist-attribute-scm.tar', map_location='cpu')['graph']
     graph.get_module('thickness').eval()
 
-    mask = a_test["digit"].argmax(1) == original_dig
     eye = torch.eye(10)
     c = {
         k: 2 * (a_test[k] - attr_stats[k][0]) / (attr_stats[k][1] - attr_stats[k][0]) - 1
         for k in attr_stats
     }
     c["digit"] = a_test["digit"].float()
-    c = {
-        k: v[mask][0:1]
-        for k, v in c.items()
-    }
-    x = x_test[mask][0:1]
 
-    explainer = DeepCounterfactualExplainer(
-        vae.encoder.sample,
-        vae.decoder,
-        clf, "digit"
-    )
+    results = []
+    n = 1000
+    for i in tqdm(range(n), total=n):
+        cur_c = {
+            k: v[i:i + 1]
+            for k, v in c.items()
+        }
+        cur_x = x_test[i:i + 1]
+        explainer = DeepCounterfactualExplainer(
+            vae.encoder.sample,
+            vae.decoder,
+            clf, "digit"
+        )
 
-    with torch.no_grad():
-        rec = vae.decoder(vae.encoder.sample(x, c), c).cpu().numpy()
-        samples, metrics = explainer.explain(x, c,
-                                             target_class=target_dig,
-                                             sample_points=1000,
-                                             metric=metric)
-        best_image = samples[0].reshape((28, 28)).cpu().numpy()
-        preds = clf(samples.reshape((-1, 1, 28, 28))).softmax(1).cpu().numpy()[0]
-        x = x.reshape((28, 28)).cpu().numpy()
-        diff_map = (best_image - x) / 2
-        diff_map[diff_map < -.1] = -1
-        diff_map[diff_map > .1] = 1
+        result_i = {
+            "mse": {},
+            "ssim": {},
+            "mixture": {}
+        }
+        with torch.no_grad():
+            codes = vae.encoder.sample(cur_x, cur_c)
+            rec = vae.decoder(codes, cur_c)
+            pred = clf(rec).argmax(1).cpu().item()
+            for metric in result_i:
+                for tgt in range(10):
+                    if tgt != pred:
+                        try:
+                            samples, metrics = explainer.explain(cur_x, cur_c,
+                                                                 target_class=tgt,
+                                                                 sample_points=100,
+                                                                 metric=metric)
+                            result_i[metric][tgt] = (samples[0], metrics.flatten()[0].cpu().item())
+                        except:
+                            result_i[metric][tgt] = None
+            results.append(result_i)
 
-    fig, axs = plt.subplots(1, 4)
-    axs[0].imshow(x, vmin=-1, vmax=1)
-    axs[0].set_title(f'Original ({original_dig})')
-    axs[1].imshow(best_image, vmin=-1, vmax=1)
-    axs[1].set_title(f'CF ({target_dig}) (metric = {round(metrics[0].item(), 6)})')
-    axs[2].imshow(diff_map, vmin=-1, vmax=1)
-    axs[2].set_title("Difference")
-    axs[3].bar(range(10), preds)
-    axs[3].set_title(f'Predicted softmax probabilities')
-    axs[3].set_xticks(list(range(10)))
-    plt.show()
+    with open("vae-cf-matrix.pkl", "wb") as fp:
+        pickle.dump(results, fp)
