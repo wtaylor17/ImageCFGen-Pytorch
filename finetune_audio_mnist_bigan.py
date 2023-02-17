@@ -6,7 +6,7 @@ from pytorch_msssim import ssim
 import numpy as np
 import seaborn as sns
 from image_scms.training_utils import batchify, batchify_dict
-from image_scms.audio_mnist import AudioMNISTData, VALIDATION_RUNS, IMAGE_SHAPE, ATTRIBUTE_DIMS
+from image_scms.audio_mnist import AudioMNISTData, VALIDATION_RUNS, IMAGE_SHAPE, ATTRIBUTE_DIMS, Encoder, Generator
 from tqdm import tqdm
 
 parser = ArgumentParser()
@@ -55,8 +55,10 @@ if __name__ == '__main__':
         return img_ * stds_kept * (spect_std + 1e-6) + spect_mean
 
     model_dict = torch.load(args.model_file, map_location=device)
-    E = model_dict['E'].to(device)
-    G = model_dict['G'].to(device)
+    E = Encoder().to(device)
+    E.load_state_dict(model_dict["E_state_dict"])
+    G = Generator().to(device)
+    G.load_state_dict(model_dict["G_state_dict"])
 
     E.train()
     G.eval()
