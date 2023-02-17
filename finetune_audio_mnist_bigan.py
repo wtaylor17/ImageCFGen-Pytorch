@@ -94,4 +94,6 @@ if __name__ == '__main__':
         print(f'Epoch {i + 1}/{args.steps}: {args.metric}={round(R / n_batches, 4)} ', end='')
         print(f'latent loss ={round(L / n_batches, 4)}')
 
+    model_dict["E_state_dict"] = E.state_dict()
+    model_dict["G_state_dict"] = G.state_dict()
     torch.save(model_dict, f'audio-mnist-bigan-finetuned-{args.metric}.tar')
