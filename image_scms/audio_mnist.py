@@ -256,7 +256,7 @@ class Generator(nn.Module):
     def forward(self, z: torch.Tensor, a):
         z = z.reshape((-1, LATENT_DIM))
         embeddings = [
-            self.embedding_dict[k](a[k].argmax(dim=1))
+            a[k].matmul(self.embedding_dict[k].weight)
             for k in sorted(ATTRIBUTE_DIMS.keys())
         ]
         return self.layers(torch.concat([z, *embeddings], dim=1))
