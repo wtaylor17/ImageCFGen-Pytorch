@@ -110,7 +110,7 @@ class EsrfStation:
 
 
 class Encoder(nn.Module):
-    def __init__(self, d=8):
+    def __init__(self, d=64):
         super(Encoder, self).__init__()
         c2d = partial(nn.Conv2d, stride=(2, 2), padding=1)
         self.has_boat_embedding = nn.Sequential(
@@ -149,7 +149,7 @@ class Encoder(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, d=8):
+    def __init__(self, d=64):
         super().__init__()
         ct2d = partial(nn.ConvTranspose2d,
                        stride=2,
@@ -184,7 +184,7 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, d=8):
+    def __init__(self, d=64):
         super(Discriminator, self).__init__()
         c2d = partial(nn.Conv2d, stride=(2, 2), padding=1)
         self.has_boat_embedding = nn.Sequential(
