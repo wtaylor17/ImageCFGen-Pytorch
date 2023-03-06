@@ -34,6 +34,7 @@ class EsrfStation:
                  validation_split=0.2, seed=42):
         self.device = device
         self.wav_paths = list(map(str, Path(station_wav_path).rglob("*.wav")))
+        self.wav_paths = list(filter(lambda x: '8000' in x, self.wav_paths))
         np.random.seed(seed)
         inds = np.random.permutation(len(self.wav_paths))
         n_train = int(len(self.wav_paths) * (1 - validation_split))
