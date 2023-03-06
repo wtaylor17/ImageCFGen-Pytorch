@@ -80,18 +80,24 @@ class EsrfStation:
             "start_idx": []
         }
         for p, i in enumerate(inds):
-            audio_data = torch.from_numpy(read_wav(paths[i])[1]).float().to(self.device)
-            # choose a random 5s
-            audio_start = np.random.randint(0, len(audio_data) - 5 * 8000)
-            batch["start_idx"].append(audio_start)
-            audio_data = audio_data[audio_start:audio_start + 5 * 8000]
             wav_fname = os.path.split(paths[i])[-1]
             mask = np.asarray(self.df["filepath"] == wav_fname)
-            batch["closest_boat"].append(self.distance_feature[mask][0])
-            batch["has_boat"].append(self.has_boat[mask].reshape((2,)))
+            closest_boat = self.distance_feature[mask][0]
+            has_boat = self.has_boat[mask].reshape((2,))
+            audio_data = torch.from_numpy(read_wav(paths[i])[1]).float().to(self.device)[5*8000:]
 
-            batch["audio"].append(audio_data)
-            batch_len += 1
+            if np.argmax(has_boat) == 1:
+                audio_start = np.random.randint(0, len(audio_data) - 5 * 8000, size=(4,))
+            else:
+                audio_start = np.random.randint(0, len(audio_data) - 5 * 8000, size=(1,))
+
+            for idx in audio_start:
+                batch["start_idx"].append(idx)
+                batch["audio"].append(audio_data[idx: idx + 5 * 8000])
+                batch["has_boat"].append(has_boat)
+                batch["closest_boat"].append(closest_boat)
+            batch_len += len(audio_start)
+
             if batch_len == batch_size or p == len(inds) - 1:
                 batch_out = dict(**batch)
                 batch_out["audio"] = torch.stack(batch_out["audio"], dim=0)
