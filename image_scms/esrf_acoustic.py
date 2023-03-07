@@ -288,16 +288,20 @@ def train(path_to_wavs: str,
         for batch in data.stream(batch_size=batch_size,
                                  mode='train'):
             n_batches += 1
-            spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1))
-            spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1))
+            spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1)).cpu().numpy()
+            spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1)).cpu().numpy()
+            torch.cuda.empty_cache()
+            del batch
 
-        spect_mean = (spect_mean / n_batches).float().to(device)  # E[X]
-        spect_ss = (spect_ss / n_batches).float().to(device)  # E[X^2]
-        spect_std = torch.sqrt(spect_ss - spect_mean.square())
+        spect_mean = spect_mean / n_batches  # E[X]
+        spect_ss = spect_ss / n_batches  # E[X^2]
+        spect_std = np.sqrt(spect_ss - spect_mean.square())
 
         print('Saving statistics...')
-        np.save('./spect_mean.npy', spect_mean.cpu().numpy())
-        np.save('./spect_std.npy', spect_std.cpu().numpy())
+        np.save('./spect_mean.npy', spect_mean)
+        np.save('./spect_std.npy', spect_std)
+        spect_mean = torch.from_numpy(spect_mean).float().to(device)
+        spect_std = torch.from_numpy(spect_std).float().to(device)
 
     print('Done.')
 
@@ -363,6 +367,8 @@ def train(path_to_wavs: str,
             DE = D(images, EX, c).sigmoid()
             D_score += DG.mean().item()
             EG_score += DE.mean().item()
+            torch.cuda.empty_cache()
+            del batch
 
         print(D_score / n_batches, EG_score / n_batches)
 
