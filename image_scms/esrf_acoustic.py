@@ -251,7 +251,7 @@ def train(path_to_wavs: str,
           l_rate: float = 1e-4,
           device: str = 'cpu',
           save_images_every: int = 2,
-          batch_size: int = 128,
+          batch_size: int = 64,
           image_output_path: str = '',
           validation_split=0.2):
     E = Encoder().to(device)
