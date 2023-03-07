@@ -1,5 +1,6 @@
 from image_scms.esrf_acoustic import train
 import torch
+import numpy as np
 import os
 from argparse import ArgumentParser
 
@@ -8,6 +9,9 @@ parser.add_argument('--data-dir', type=str)
 parser.add_argument('--labels', type=str)
 parser.add_argument('--epochs', type=int, default=500)
 parser.add_argument('--output-path', type=str, default='./esrf-bigan')
+
+torch.manual_seed(42)
+np.random.seed(42)
 
 if __name__ == '__main__':
     args = parser.parse_args()
