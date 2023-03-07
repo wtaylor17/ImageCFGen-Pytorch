@@ -106,6 +106,9 @@ class EsrfStation:
                 if transform:
                     batch_out["audio"] = self.audio_to_image(batch_out["audio"])
                     batch_out["closest_boat"] = 2 * batch_out["closest_boat"] / 100 - 1
+                yield batch_out
+                del batch
+                torch.cuda.empty_cache()
                 batch = {
                     "audio": [],
                     "closest_boat": [],
@@ -113,7 +116,6 @@ class EsrfStation:
                     "start_idx": []
                 }
                 batch_len = 0
-                yield batch_out
 
 
 class Encoder(nn.Module):
@@ -290,8 +292,8 @@ def train(path_to_wavs: str,
             n_batches += 1
             spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1)).cpu().numpy()
             spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1)).cpu().numpy()
-            torch.cuda.empty_cache()
             del batch
+            torch.cuda.empty_cache()
 
         spect_mean = spect_mean / n_batches  # E[X]
         spect_ss = spect_ss / n_batches  # E[X^2]
