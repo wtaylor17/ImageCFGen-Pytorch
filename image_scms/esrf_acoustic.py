@@ -294,8 +294,6 @@ def train(path_to_wavs: str,
             n_batches += 1
             spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1)).cpu().numpy()
             spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1)).cpu().numpy()
-            del batch
-            torch.cuda.empty_cache()
             print('batch done')
 
         spect_mean = spect_mean / n_batches  # E[X]
