@@ -108,9 +108,9 @@ class EsrfStation:
                     batch_out["audio"] = self.audio_to_image(batch_out["audio"])
                     batch_out["closest_boat"] = 2 * batch_out["closest_boat"] / 100 - 1
                 yield batch_out
-                del batch_out
-                del batch
-                torch.cuda.empty_cache()
+                # del batch_out
+                # del batch
+                # torch.cuda.empty_cache()
                 batch = {
                     "audio": [],
                     "closest_boat": [],
