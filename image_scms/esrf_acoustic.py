@@ -84,6 +84,7 @@ class EsrfStation:
             mask = np.asarray(self.df["filepath"] == wav_fname)
             closest_boat = self.distance_feature[mask][0]
             has_boat = self.has_boat[mask].reshape((2,))
+            print(paths[i])
             audio_data = read_wav(paths[i])[1][5*8000:]
 
             if np.argmax(has_boat) == 1:
