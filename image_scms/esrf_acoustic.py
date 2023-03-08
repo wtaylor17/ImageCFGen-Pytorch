@@ -84,7 +84,6 @@ class EsrfStation:
             mask = np.asarray(self.df["filepath"] == wav_fname)
             closest_boat = self.distance_feature[mask][0]
             has_boat = self.has_boat[mask].reshape((2,))
-            print(paths[i])
             audio_data = read_wav(paths[i])[1][5*8000:]
 
             if np.argmax(has_boat) == 1:
@@ -99,7 +98,7 @@ class EsrfStation:
                 batch["closest_boat"].append(closest_boat)
             batch_len += len(audio_start)
 
-            if batch_len == batch_size or p == len(inds) - 1:
+            if batch_len >= batch_size or p == len(inds) - 1:
                 batch_out = dict(**batch)
                 batch_out["audio"] = torch.stack([torch.from_numpy(v) for v in batch_out["audio"]],
                                                  dim=0).float().to(self.device)
@@ -109,9 +108,9 @@ class EsrfStation:
                     batch_out["audio"] = self.audio_to_image(batch_out["audio"])
                     batch_out["closest_boat"] = 2 * batch_out["closest_boat"] / 100 - 1
                 yield batch_out
-                # del batch_out
-                # del batch
-                # torch.cuda.empty_cache()
+                del batch_out
+                del batch
+                torch.cuda.empty_cache()
                 batch = {
                     "audio": [],
                     "closest_boat": [],
