@@ -297,7 +297,7 @@ def train(path_to_wavs: str,
 
         spect_mean = spect_mean / n_batches  # E[X]
         spect_ss = spect_ss / n_batches  # E[X^2]
-        spect_std = np.sqrt(spect_ss - spect_mean.square())
+        spect_std = np.sqrt(spect_ss - np.square(spect_mean))
 
         print('Saving statistics...')
         np.save('./spect_mean.npy', spect_mean)
