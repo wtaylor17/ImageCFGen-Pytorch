@@ -280,30 +280,19 @@ def train(path_to_wavs: str,
 
     spect_mean, spect_ss, n_batches = 0, 0, 0
 
-    spect_mean_path = './spect_mean.npy'
-    spect_std_path = './spect_std.npy'
+    print('Computing spectrogram statistics...')
+    for batch in data.stream(batch_size=batch_size,
+                             mode='train'):
+        n_batches += 1
+        spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1)).cpu().numpy()
+        spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1)).cpu().numpy()
 
-    if os.path.isfile(spect_mean_path) and os.path.isfile(spect_std_path):
-        print('Loading spectrogram statistics from disk...')
-        spect_mean = torch.from_numpy(np.load(spect_mean_path)).float().to(device)
-        spect_std = torch.from_numpy(np.load(spect_std_path)).float().to(device)
-    else:
-        print('Computing spectrogram statistics...')
-        for batch in data.stream(batch_size=batch_size,
-                                 mode='train'):
-            n_batches += 1
-            spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1)).cpu().numpy()
-            spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1)).cpu().numpy()
+    spect_mean = spect_mean / n_batches  # E[X]
+    spect_ss = spect_ss / n_batches  # E[X^2]
+    spect_std = np.sqrt(spect_ss - np.square(spect_mean))
 
-        spect_mean = spect_mean / n_batches  # E[X]
-        spect_ss = spect_ss / n_batches  # E[X^2]
-        spect_std = np.sqrt(spect_ss - np.square(spect_mean))
-
-        print('Saving statistics...')
-        np.save('./spect_mean.npy', spect_mean)
-        np.save('./spect_std.npy', spect_std)
-        spect_mean = torch.from_numpy(spect_mean).float().to(device)
-        spect_std = torch.from_numpy(spect_std).float().to(device)
+    spect_mean = torch.from_numpy(spect_mean).float().to(device)
+    spect_std = torch.from_numpy(spect_std).float().to(device)
 
     print('Done.')
 
