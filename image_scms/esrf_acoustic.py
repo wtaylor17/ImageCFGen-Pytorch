@@ -374,7 +374,7 @@ def train(path_to_wavs: str,
                 demo_batch = next(data.stream(batch_size=n_show,
                                               mode='validation'))
                 images = demo_batch["audio"].reshape((-1, 1, 512, 512)).float().to(device)
-                c = {k: torch.clone(demo_batch[k]).int().to(device)
+                c = {k: torch.clone(demo_batch[k]).float().to(device)
                      for k in attr_cols if k in ATTRIBUTE_DIMS}
                 x = spect_to_img(images)
 
