@@ -125,7 +125,7 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         c2d = partial(nn.Conv2d, stride=(2, 2), padding=1)
         self.has_boat_embedding = nn.Sequential(
-                nn.Embedding(1, 256),
+                nn.Embedding(2, 256),
                 nn.Unflatten(1, (1, 16, 16)),
                 nn.Upsample(scale_factor=32),
                 nn.Tanh()
@@ -199,7 +199,7 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         c2d = partial(nn.Conv2d, stride=(2, 2), padding=1)
         self.has_boat_embedding = nn.Sequential(
-                nn.Embedding(1, 256),
+                nn.Embedding(2, 256),
                 nn.Unflatten(1, (1, 16, 16)),
                 nn.Upsample(scale_factor=32),
                 nn.Tanh()
