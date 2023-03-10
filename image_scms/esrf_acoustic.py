@@ -373,12 +373,12 @@ def train(path_to_wavs: str,
                 # generate images from same class as real ones
                 demo_batch = next(data.stream(batch_size=n_show,
                                               mode='validation'))
-                images = demo_batch["audio"].reshape((-1, 1, 512, 512)).float().to(device)
-                c = {k: torch.clone(demo_batch[k]).float().to(device)
+                images = demo_batch["audio"][:n_show].reshape((-1, 1, 512, 512)).float().to(device)
+                c = {k: torch.clone(demo_batch[k][:n_show]).float().to(device)
                      for k in attr_cols if k in ATTRIBUTE_DIMS}
                 x = spect_to_img(images)
 
-                z_mean = torch.zeros((len(x), LATENT_DIM, 1, 1)).float()
+                z_mean = torch.zeros((n_show, LATENT_DIM, 1, 1)).float()
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
