@@ -257,14 +257,20 @@ def train(path_to_wavs: str,
           save_images_every: int = 2,
           batch_size: int = 64,
           image_output_path: str = '',
-          validation_split=0.2):
+          validation_split=0.2,
+          start_model_path=None):
     E = Encoder().to(device)
     G = Generator().to(device)
     D = Discriminator().to(device)
-
     E.apply(init_weights)
     G.apply(init_weights)
     D.apply(init_weights)
+
+    if start_model_path is not None:
+        model_dict = torch.load(start_model_path, map_location=device)
+        E = model_dict['E']
+        G = model_dict['G']
+        D = model_dict['D']
 
     optimizer_E = torch.optim.Adam(list(E.parameters()) + list(G.parameters()),
                                    lr=l_rate, betas=(0.5, 0.9))
