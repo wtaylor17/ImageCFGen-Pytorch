@@ -33,15 +33,6 @@ class EsrfStation:
     def __init__(self, station_wav_path: str, station_label_csv: str, device="cpu",
                  validation_split=0.2, seed=42):
         self.device = device
-        self.wav_paths = list(map(str, Path(station_wav_path).rglob("*.wav")))
-        self.wav_paths = list(filter(lambda x: '8000' in x, self.wav_paths))
-        np.random.seed(seed)
-        inds = np.random.permutation(len(self.wav_paths))
-        n_train = int(len(self.wav_paths) * (1 - validation_split))
-        self.train_paths = [self.wav_paths[i]
-                            for i in inds[:n_train]]
-        self.validation_paths = [self.wav_paths[i]
-                                 for i in inds[n_train:]]
         self.audio_to_spectrogram = torchaudio.transforms.Spectrogram(
             n_fft=1023, win_length=256, hop_length=79, pad=200
         ).to(self.device)
@@ -60,12 +51,32 @@ class EsrfStation:
                 return 100 - max(i for i in range(len(e)) if e[i] > 0)
             return -1
         self.distance_feature = np.array([glb(e) for e in np.asarray(self.df[bg_cols])])
+        self.df = self.df[self.distance_feature <= 30]
+        self.distance_feature = self.distance_feature[self.distance_feature <= 30]
         self.has_boat = (self.distance_feature > 0).astype(float)
         self.distance_feature[~self.has_boat.astype(bool)] = 0
         has_boat_2d = np.zeros((self.has_boat.shape[0], 2))
         has_boat_2d[self.has_boat == 0, 0] = 1
         has_boat_2d[self.has_boat == 1, 1] = 1
         self.has_boat = has_boat_2d
+
+        filepaths = set(self.df["filepath"])
+        self.wav_paths = list(map(str, Path(station_wav_path).rglob("*.wav")))
+        self.wav_paths = list(filter(lambda x: '8000' in x and os.path.split(x)[-1] in filepaths,
+                                     self.wav_paths))
+        n_positive = int(has_boat_2d[:, 1].sum())
+        negative_paths = [p for p in self.wav_paths
+                          if has_boat_2d[self.df["filepath"] == os.path.split(p)[-1]][0, 1] == 1]
+        self.wav_paths = [p for p in self.wav_paths if p not in negative_paths]
+        self.wav_paths += negative_paths[:10 * n_positive]
+
+        np.random.seed(seed)
+        inds = np.random.permutation(len(self.wav_paths))
+        n_train = int(len(self.wav_paths) * (1 - validation_split))
+        self.train_paths = [self.wav_paths[i]
+                            for i in inds[:n_train]]
+        self.validation_paths = [self.wav_paths[i]
+                                 for i in inds[n_train:]]
 
     def stream(self, transform=True, batch_size=64, shuffle=True, mode='train'):
         paths = self.train_paths if mode == 'train' else self.validation_paths
@@ -87,7 +98,7 @@ class EsrfStation:
             audio_data = read_wav(paths[i])[1][5*8000:]
 
             if np.argmax(has_boat) == 1:
-                audio_start = np.random.randint(0, len(audio_data) - 5 * 8000, size=(4,))
+                audio_start = np.random.randint(0, len(audio_data) - 5 * 8000, size=(10,))
             else:
                 audio_start = np.random.randint(0, len(audio_data) - 5 * 8000, size=(1,))
 

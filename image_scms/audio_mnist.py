@@ -184,22 +184,16 @@ class Encoder(nn.Module):
             for k, v in ATTRIBUTE_DIMS.items()
         })
         self.layers = nn.Sequential(
-            # nn.BatchNorm2d(2),
             c2d(len(ATTRIBUTE_DIMS) + 1, d, (5, 5)),
             nn.LeakyReLU(0.2),
-            # nn.BatchNorm2d(d),
             c2d(d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            # nn.BatchNorm2d(2 * d),
             c2d(2 * d, 4 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            # nn.BatchNorm2d(4 * d),
             c2d(4 * d, 8 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            # nn.BatchNorm2d(8 * d),
             c2d(8 * d, 16 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            # nn.BatchNorm2d(16 * d),
             c2d(16 * d, LATENT_DIM, (5, 5))
         )
 

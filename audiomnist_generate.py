@@ -16,7 +16,7 @@ parser.add_argument("--accent-clf", type=str, default=None)
 parser.add_argument("-d", "--data", type=str, default="AudioMNIST-data.zip")
 parser.add_argument("-n", "--num-samples", type=int, default=10)
 parser.add_argument("-o", "--outdir", type=str, default=".")
-parser.add_argument("-r", "--mc-rounds", type=int, default=4)
+parser.add_argument("-r", "--mc-rounds", type=int, default=1)
 
 
 if __name__ == "__main__":
@@ -129,5 +129,5 @@ if __name__ == "__main__":
                 attrs_json["gender_pred"] = str(gender_preds[i].flatten()[0])
             json_str = json.dumps(attrs_json, indent=4)
             print(json_str)
-            with open(f"sample-{i}.json", "w") as fp:
+            with open(os.path.join(outdir, f"sample-{i}.json"), "w") as fp:
                 json.dump(attrs_json, fp, indent=4)

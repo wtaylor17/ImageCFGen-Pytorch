@@ -14,7 +14,6 @@ import torchaudio
 from zipfile import ZipFile
 import json
 
-
 np.random.seed(42)
 VALIDATION_RUNS = np.random.randint(0, 50, size=(10,)).tolist()
 
@@ -118,8 +117,10 @@ class AudioMNISTData:
                         self.data["run"].append(run)
 
             self.data["audio"] = np.stack(self.data["audio"], axis=0)
-            self.transforms["audio"] = lambda x: (self.audio_to_spectrogram(torch.from_numpy(x).float().to(self.device)) + 1e-6).log()
-            self.inv_transforms["audio"] = lambda x: self.spectrogram_to_audio(torch.from_numpy(x).to(self.device).exp())
+            self.transforms["audio"] = lambda x: (
+                    self.audio_to_spectrogram(torch.from_numpy(x).float().to(self.device)) + 1e-6).log()
+            self.inv_transforms["audio"] = lambda x: self.spectrogram_to_audio(
+                torch.from_numpy(x).to(self.device).exp())
 
             for k in self.data:
                 self.data[k] = np.asarray(self.data[k])
@@ -136,6 +137,7 @@ class AudioMNISTData:
 
                 def inv_transform(x, oh=None):
                     return oh.inverse_transform(x)
+
                 self.transforms[feature] = partial(transform, oh=one_hot)
                 self.inv_transforms[feature] = partial(inv_transform, oh=one_hot)
 
@@ -183,6 +185,57 @@ ATTRIBUTE_DIMS = {
     "age": 5,
     "gender": 2
 }
+
+
+def evaluate(zip_path: str,
+             model_path: str,
+             attribute: str = "digit",
+             stats_prefix: str = None,
+             batch_size: int = 128):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    data = AudioMNISTData(zip_path, device=device)
+    model = torch.load(model_path, map_location=device)['model']
+
+    if stats_prefix is not None:
+        print('loading')
+        spect_mean = torch.from_numpy(
+            np.load(stats_prefix + '_mean.npy')
+        ).float().to(device)
+        spect_std = torch.from_numpy(
+            np.load(stats_prefix + '_std.npy')
+        ).float().to(device)
+    else:
+        spect_mean, spect_ss, n_batches = 0, 0, 0
+        print('Computing spectrogram statistics...')
+        for batch in data.stream(batch_size=batch_size,
+                                 excluded_runs=VALIDATION_RUNS):
+            n_batches += 1
+            spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1))
+            spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1))
+
+        spect_mean = (spect_mean / n_batches).float().to(device)  # E[X]
+        spect_ss = (spect_ss / n_batches).float().to(device)  # E[X^2]
+        spect_std = torch.sqrt(spect_ss - spect_mean.square())
+
+    stds_kept = 3
+
+    def spect_to_img(spect_):
+        spect_ = (spect_ - spect_mean) / (spect_std + 1e-6)
+        return torch.clip(spect_, -stds_kept, stds_kept) / float(stds_kept)
+
+    n_correct = 0
+    n_total = 0
+    print('running clf')
+    with torch.no_grad():
+        for batch in tqdm(data.stream(batch_size=batch_size,
+                                      excluded_runs=list(set(range(50)) - set(VALIDATION_RUNS)))):
+            labels = batch[attribute]
+            x = spect_to_img(batch["audio"]).reshape((-1, 1, 128, 128))
+            n_total += len(x)
+            n_correct += (labels.argmax(1) == model(x).argmax(1)).sum().cpu().item()
+
+    return n_correct / n_total
 
 
 def train(zip_path: str,
@@ -242,5 +295,5 @@ def train(zip_path: str,
                 valid_correct += torch.eq(pred, y).float().sum().item()
                 n_valid += len(y)
 
-        print(f"Epoch {e+1}/{epochs} complete. Validation accuracy = {round(valid_correct / n_valid, 4)}")
+        print(f"Epoch {e + 1}/{epochs} complete. Validation accuracy = {round(valid_correct / n_valid, 4)}")
     return model
