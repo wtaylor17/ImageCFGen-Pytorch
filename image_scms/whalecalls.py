@@ -466,9 +466,9 @@ def train(nocall_directory,
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
-                gener = img_to_spect(G(z, c).reshape(n_show, 128, 128)).cpu().numpy()
-                recon = img_to_spect(G(E(x, c), c).reshape(n_show, 128, 128)).cpu().numpy()
-                real = img_to_spect(x.reshape((n_show, 128, 128))).cpu().numpy()
+                gener = img_to_spect(G(z, c).reshape(-1, 128, 128)).cpu().numpy()
+                recon = img_to_spect(G(E(x, c), c).reshape(-1, 128, 128)).cpu().numpy()
+                real = img_to_spect(x.reshape((-1, 128, 128))).cpu().numpy()
                 vmin, vmax = real.min(), real.max()
 
             if save_images_every is not None:
