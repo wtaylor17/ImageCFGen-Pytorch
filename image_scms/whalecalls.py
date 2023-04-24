@@ -493,9 +493,15 @@ def train(nocall_directory,
                 plt.savefig(f'{image_output_path}/epoch-{epoch + 1}.png')
                 plt.close()
 
-                gener_wav = data.image_to_audio(gener[0:1]).cpu().numpy()[0]
-                rec_wav = data.image_to_audio(recon[0:1]).cpu().numpy()[0]
-                real_wav = data.image_to_audio(real[0:1]).cpu().numpy()[0]
+                gener_wav = data.image_to_audio(
+                    torch.from_numpy(gener[0:1]).to(device)
+                ).cpu().numpy()[0]
+                rec_wav = data.image_to_audio(
+                    torch.from_numpy(recon[0:1]).to(device)
+                ).cpu().numpy()[0]
+                real_wav = data.image_to_audio(
+                    torch.from_numpy(real[0:1]).to(device)
+                ).cpu().numpy()[0]
 
                 write_wav(f"{image_output_path}/epoch-{epoch + 1}-generated.wav", 8000,
                           np.int16(gener_wav / np.max(np.abs(gener_wav)) * 32767))
