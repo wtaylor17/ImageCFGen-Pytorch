@@ -369,7 +369,8 @@ def train(nocall_directory,
     print('Loading dataset...')
     data = WhaleCallData(nocall_directory,
                          gunshot_directory,
-                         upcall_directory)
+                         upcall_directory,
+                         device=device)
     print('Done')
 
     spect_mean, spect_ss, n_batches = 0, 0, 0
