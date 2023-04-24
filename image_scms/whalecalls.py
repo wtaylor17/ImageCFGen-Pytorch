@@ -485,7 +485,7 @@ def train(nocall_directory,
                 for i in range(n_show):
                     ax[0, i].imshow(gener[i], vmin=vmin, vmax=vmax)
                     ax[0, i].axis('off')
-                    ax[0, i].set_title(f'Call = {c["call_type"][i].argmax(1).item()}')
+                    ax[0, i].set_title(f'Call = {c["call_type"][i].argmax().item()}')
                     ax[1, i].imshow(real[i], vmin=vmin, vmax=vmax)
                     ax[1, i].axis('off')
                     ax[2, i].imshow(recon[i], vmin=vmin, vmax=vmax)
