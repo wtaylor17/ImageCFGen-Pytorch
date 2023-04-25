@@ -212,6 +212,7 @@ class Encoder(nn.Module):
                 nn.Tanh()
             )
             for k, v in ATTRIBUTE_DIMS.items()
+            if k not in ["time", "path"]
         })
         self.layers = nn.Sequential(
             c2d(len(ATTRIBUTE_DIMS) + 1, d, (5, 5)),
@@ -235,6 +236,7 @@ class Encoder(nn.Module):
         embeddings = [
             self.embedding_dict[k](a[k].argmax(dim=1))
             for k in sorted(ATTRIBUTE_DIMS.keys())
+            if k not in ["time", "path"]
         ]
         X = X.reshape((-1, 1, *IMAGE_SHAPE))
         return self.layers(torch.concat([X, *embeddings], dim=1))
@@ -250,6 +252,7 @@ class Generator(nn.Module):
         self.embedding_dict = nn.ModuleDict({
             k: nn.Embedding(v, 256)
             for k, v in ATTRIBUTE_DIMS.items()
+            if k not in ["time", "path"]
         })
         self.layers = nn.Sequential(
             # nn.BatchNorm1d(LATENT_DIM + 256 * len(ATTRIBUTE_DIMS)),
@@ -282,6 +285,7 @@ class Generator(nn.Module):
         embeddings = [
             a[k].float().matmul(self.embedding_dict[k].weight)
             for k in sorted(ATTRIBUTE_DIMS.keys())
+            if k not in ["time", "path"]
         ]
         return self.layers(torch.concat([z, *embeddings], dim=1))
 
@@ -298,6 +302,7 @@ class Discriminator(nn.Module):
                 nn.Tanh()
             )
             for k, v in ATTRIBUTE_DIMS.items()
+            if k not in ["time", "path"]
         })
         self.dz = nn.Sequential(
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
@@ -342,6 +347,7 @@ class Discriminator(nn.Module):
         embeddings = [
             self.embedding_dict[k](a[k].argmax(dim=1))
             for k in sorted(ATTRIBUTE_DIMS.keys())
+            if k not in ["time", "path"]
         ]
         dx = self.dx(torch.concat([X, *embeddings], dim=1))
         dz = self.dz(z)
