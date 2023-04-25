@@ -411,7 +411,8 @@ def train(nocall_directory,
                                        total=n_batches)):
             images = batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
             c = {k: torch.clone(batch[k]).int().to(device)
-                 for k in attr_cols if k in ATTRIBUTE_DIMS}
+                 for k in attr_cols if k in ATTRIBUTE_DIMS
+                 and k not in ["time", "path"]}
             images = spect_to_img(images)
 
             z_mean = torch.zeros((len(images), LATENT_DIM, 1, 1)).float()
@@ -466,7 +467,8 @@ def train(nocall_directory,
                                               mode='validation'))
                 images = demo_batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
                 c = {k: torch.clone(demo_batch[k]).int().to(device)
-                     for k in attr_cols if k in ATTRIBUTE_DIMS}
+                     for k in attr_cols if k in ATTRIBUTE_DIMS
+                     and k not in ["time", "path"]}
                 x = spect_to_img(images)
 
                 z_mean = torch.zeros((len(x), LATENT_DIM, 1, 1)).float()
