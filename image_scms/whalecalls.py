@@ -208,7 +208,7 @@ class Encoder(nn.Module):
             k: nn.Sequential(
                 nn.Embedding(v, 256),
                 nn.Unflatten(1, (1, 16, 16)),
-                nn.Upsample(scale_factor=8),
+                nn.Upsample(scale_factor=16),
                 nn.Tanh()
             )
             for k, v in ATTRIBUTE_DIMS.items()
@@ -298,7 +298,7 @@ class Discriminator(nn.Module):
             k: nn.Sequential(
                 nn.Embedding(v, 256),
                 nn.Unflatten(1, (1, 16, 16)),
-                nn.Upsample(scale_factor=8),
+                nn.Upsample(scale_factor=16),
                 nn.Tanh()
             )
             for k, v in ATTRIBUTE_DIMS.items()
