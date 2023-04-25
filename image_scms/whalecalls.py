@@ -173,7 +173,7 @@ class WhaleCallData:
                 batch["call_type"].append(call_type[i])
                 batch_len += 1
 
-            if batch_len >= batch_size or p == len(inds) - 1:
+            if batch_len >= batch_size or (p == len(inds) - 1 and batch_len > 0):
                 batch_out = dict(**batch)
                 batch_out["audio"] = torch.stack([torch.from_numpy(v)
                                                   for v in batch_out["audio"]],
