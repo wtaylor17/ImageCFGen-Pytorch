@@ -11,7 +11,9 @@ from functools import partial
 from tqdm import tqdm
 
 ATTRIBUTE_DIMS = {
-    "call_type": 3
+    "call_type": 3,
+    "path": 1,
+    "time": 2
 }
 LATENT_DIM = 512
 
@@ -36,11 +38,11 @@ class WhaleCallData:
 
         self.device = device
         self.audio_to_spectrogram = torchaudio.transforms.Spectrogram(
-            n_fft=255, win_length=128, hop_length=47,
+            n_fft=511, win_length=128, hop_length=24, pad=64
         ).to(self.device)
         self.audio_to_image = lambda x: (self.audio_to_spectrogram(x) + 1e-6).log()
         self.spectrogram_to_audio = torchaudio.transforms.GriffinLim(
-            n_fft=255, win_length=128, hop_length=47,
+            n_fft=511, win_length=128, hop_length=24,
         ).to(self.device)
         self.image_to_audio = lambda x: self.spectrogram_to_audio(x.exp())
 
@@ -161,6 +163,8 @@ class WhaleCallData:
                 start = max(0, int(sr * start))
                 end = min(len(audio_data), int(sr * end))
                 batch["audio"].append(audio_data[start:end])
+                batch["path"].append(paths[i])
+                batch["time"].append([t0, t1])
                 if len(batch["audio"][-1]) < 3 * sr:
                     batch["audio"][-1] = np.concatenate([
                         batch["audio"][-1],
@@ -179,7 +183,8 @@ class WhaleCallData:
                                                   for v in batch_out["audio"]],
                                                  dim=0).float().to(self.device)
                 for k in ATTRIBUTE_DIMS:
-                    batch_out[k] = torch.from_numpy(np.asarray(batch_out[k])).float().to(self.device)
+                    if k not in ["path", "time"]:
+                        batch_out[k] = torch.from_numpy(np.asarray(batch_out[k])).float().to(self.device)
                 if transform:
                     batch_out["audio"] = self.audio_to_image(batch_out["audio"])
                 yield batch_out
@@ -504,11 +509,11 @@ def train(nocall_directory,
                     torch.from_numpy(real[0:1]).to(device)
                 ).cpu().numpy()[0]
 
-                write_wav(f"{image_output_path}/epoch-{epoch + 1}-generated.wav", 8000,
+                write_wav(f"{image_output_path}/epoch-{epoch + 1}-generated.wav", 2000,
                           np.int16(gener_wav / np.max(np.abs(gener_wav)) * 32767))
-                write_wav(f"{image_output_path}/epoch-{epoch + 1}-real.wav", 8000,
+                write_wav(f"{image_output_path}/epoch-{epoch + 1}-real.wav", 2000,
                           np.int16(real_wav / np.max(np.abs(real_wav)) * 32767))
-                write_wav(f"{image_output_path}/epoch-{epoch + 1}-reconstructed.wav", 8000,
+                write_wav(f"{image_output_path}/epoch-{epoch + 1}-reconstructed.wav", 2000,
                           np.int16(rec_wav / np.max(np.abs(rec_wav)) * 32767))
 
                 print('Image and audio saved to', image_output_path)
