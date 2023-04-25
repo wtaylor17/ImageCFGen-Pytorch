@@ -15,6 +15,7 @@ ATTRIBUTE_DIMS = {
     "path": 1,
     "time": 2
 }
+IMAGE_SHAPE = (256, 256)
 LATENT_DIM = 512
 
 
@@ -235,7 +236,7 @@ class Encoder(nn.Module):
             self.embedding_dict[k](a[k].argmax(dim=1))
             for k in sorted(ATTRIBUTE_DIMS.keys())
         ]
-        X = X.reshape((-1, 1, 128, 128))
+        X = X.reshape((-1, 1, *IMAGE_SHAPE))
         return self.layers(torch.concat([X, *embeddings], dim=1))
 
 
@@ -336,7 +337,7 @@ class Discriminator(nn.Module):
         return next(self.parameters()).device
 
     def forward(self, X, z, a):
-        X = X.reshape((-1, 1, 128, 128))
+        X = X.reshape((-1, 1, *IMAGE_SHAPE))
         z = z.reshape((-1, LATENT_DIM, 1, 1))
         embeddings = [
             self.embedding_dict[k](a[k].argmax(dim=1))
@@ -408,7 +409,7 @@ def train(nocall_directory,
         G.train()
         for i, batch in enumerate(tqdm(data.stream(batch_size=batch_size),
                                        total=n_batches)):
-            images = batch["audio"].reshape((-1, 1, 128, 128)).float().to(device)
+            images = batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
             c = {k: torch.clone(batch[k]).int().to(device)
                  for k in attr_cols if k in ATTRIBUTE_DIMS}
             images = spect_to_img(images)
@@ -463,7 +464,7 @@ def train(nocall_directory,
                 # generate images from same class as real ones
                 demo_batch = next(data.stream(batch_size=n_show,
                                               mode='validation'))
-                images = demo_batch["audio"].reshape((-1, 1, 128, 128)).float().to(device)
+                images = demo_batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
                 c = {k: torch.clone(demo_batch[k]).int().to(device)
                      for k in attr_cols if k in ATTRIBUTE_DIMS}
                 x = spect_to_img(images)
@@ -472,9 +473,9 @@ def train(nocall_directory,
                 z = torch.normal(z_mean, z_mean + 1)
                 z = z.to(device)
 
-                gener = img_to_spect(G(z, c).reshape(-1, 128, 128)).cpu().numpy()
-                recon = img_to_spect(G(E(x, c), c).reshape(-1, 128, 128)).cpu().numpy()
-                real = img_to_spect(x.reshape((-1, 128, 128))).cpu().numpy()
+                gener = img_to_spect(G(z, c).reshape(-1, *IMAGE_SHAPE)).cpu().numpy()
+                recon = img_to_spect(G(E(x, c), c).reshape(-1, *IMAGE_SHAPE)).cpu().numpy()
+                real = img_to_spect(x.reshape((-1, *IMAGE_SHAPE))).cpu().numpy()
                 vmin, vmax = real.min(), real.max()
 
             if save_images_every is not None:
