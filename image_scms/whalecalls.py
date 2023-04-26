@@ -419,8 +419,9 @@ def train(nocall_directory,
         D.train()
         E.train()
         G.train()
-        for i, batch in enumerate(tqdm(data.stream(batch_size=batch_size),
-                                       total=n_batches)):
+        tq = tqdm(data.stream(batch_size=batch_size),
+                              total=n_batches)
+        for i, batch in enumerate(tq):
             images = batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
             c = {k: torch.clone(batch[k]).int().to(device)
                  for k in attr_cols if k in ATTRIBUTE_DIMS
@@ -464,6 +465,7 @@ def train(nocall_directory,
             DE = D(images, EX, c).sigmoid()
             D_score += DG.mean().item()
             EG_score += DE.mean().item()
+            tq.set_postfix(D=D_score, EG=EG_score)
 
         print(D_score / n_batches, EG_score / n_batches)
 
