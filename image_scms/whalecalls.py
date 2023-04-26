@@ -215,9 +215,11 @@ class Encoder(nn.Module):
             if k not in ["time", "path"]
         })
         self.layers = nn.Sequential(
-            c2d(len(ATTRIBUTE_DIMS) + 1, d, (5, 5)),
+            c2d(2, d, (5, 5)),
             nn.LeakyReLU(0.2),
             c2d(d, 2 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(2 * d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             c2d(2 * d, 4 * d, (5, 5)),
             nn.LeakyReLU(0.2),
@@ -256,7 +258,7 @@ class Generator(nn.Module):
         })
         self.layers = nn.Sequential(
             # nn.BatchNorm1d(LATENT_DIM + 256 * len(ATTRIBUTE_DIMS)),
-            nn.Linear(LATENT_DIM + 256 * len(ATTRIBUTE_DIMS), 256 * d),
+            nn.Linear(LATENT_DIM + 256, 256 * d),
             nn.Unflatten(1, (16 * d, 4, 4)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(16 * d),
@@ -269,6 +271,8 @@ class Generator(nn.Module):
             ct2d(4 * d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(2 * d),
+            ct2d(2 * d, 2 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
             ct2d(2 * d, d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(d),
@@ -312,12 +316,14 @@ class Discriminator(nn.Module):
         )
         self.dx = nn.Sequential(
             # nn.BatchNorm2d(len(ATTRIBUTE_DIMS) + 1),
-            c2d(len(ATTRIBUTE_DIMS) + 1, d, (5, 5)),
+            c2d(2, d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(d),
             c2d(d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(2 * d),
+            c2d(2 * d, 2 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
             c2d(2 * d, 4 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(4 * d),
