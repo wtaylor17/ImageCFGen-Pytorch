@@ -404,6 +404,9 @@ def train(nocall_directory,
     spect_std = torch.sqrt(spect_ss - spect_mean.square())
     stds_kept = 3
 
+    print('mean:', spect_mean.isnan().sum())
+    print('std:', spect_mean.isnan().sum())
+
     def spect_to_img(spect_):
         spect_ = (spect_ - spect_mean) / (spect_std + 1e-6)
         return torch.clip(spect_, -stds_kept, stds_kept) / float(stds_kept)
@@ -427,6 +430,8 @@ def train(nocall_directory,
                  for k in attr_cols if k in ATTRIBUTE_DIMS
                  and k not in ["time", "path"]}
             images = spect_to_img(images)
+            # print('img:', images.isnan().sum())
+            # print('c:', c["call_type"].isnan().sum())
 
             z_mean = torch.zeros((len(images), LATENT_DIM, 1, 1)).float()
             z = torch.normal(z_mean, z_mean + 1).to(device)
@@ -465,7 +470,7 @@ def train(nocall_directory,
             DE = D(images, EX, c).sigmoid()
             D_score += DG.mean().item()
             EG_score += DE.mean().item()
-            tq.set_postfix(D=D_score, EG=EG_score)
+            tq.set_postfix(D=D_score / (i + 1), EG=EG_score / (i + 1))
 
         print(D_score / n_batches, EG_score / n_batches)
 
