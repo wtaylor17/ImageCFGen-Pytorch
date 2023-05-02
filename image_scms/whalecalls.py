@@ -52,8 +52,12 @@ class WhaleCallData:
         for path in shotgun_log_paths:
             _, fname = os.path.split(path)
             date = fname.split('_')[1]
+            event = loadmat(path)[f'Log_{fname[:-4]}']['event']
+            times = event[0, 0]['time'][0].tolist()
+            tags = event[0, 0]['tags'][0].tolist()
             self.shotgun_call_times[date] = np.asarray(
-                loadmat(path)[f'Log_{fname[:-4]}']['event'][0, 0]['time'][0].tolist()
+                [t for t, tag in zip(times, tags)
+                 if len(tag) == 0]
             ).reshape((-1, 2))
 
         self.upcall_call_times = {}
@@ -61,8 +65,12 @@ class WhaleCallData:
         for path in upcall_log_paths:
             _, fname = os.path.split(path)
             date = fname.split('_')[1]
+            event = loadmat(path)[f'Log_{fname[:-4]}']['event']
+            times = event[0, 0]['time'][0].tolist()
+            tags = event[0, 0]['tags'][0].tolist()
             self.upcall_call_times[date] = np.asarray(
-                loadmat(path)[f'Log_{fname[:-4]}']['event'][0, 0]['time'][0].tolist()
+                [t for t, tag in zip(times, tags)
+                 if len(tag) == 0]
             ).reshape((-1, 2))
 
         self.shotgun_wav_paths = list(map(str, Path(shotgun_directory).rglob("*.wav")))
@@ -219,13 +227,13 @@ class Encoder(nn.Module):
             nn.LeakyReLU(0.2),
             c2d(d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
-            c2d(2 * d, 2 * d, (5, 5)),
-            nn.LeakyReLU(0.2),
             c2d(2 * d, 4 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             c2d(4 * d, 8 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             c2d(8 * d, 16 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(16 * d, 16 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             c2d(16 * d, LATENT_DIM, (5, 5))
         )
@@ -262,6 +270,8 @@ class Generator(nn.Module):
             nn.Unflatten(1, (16 * d, 4, 4)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(16 * d),
+            ct2d(16 * d, 16 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
             ct2d(16 * d, 8 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(8 * d),
@@ -271,8 +281,6 @@ class Generator(nn.Module):
             ct2d(4 * d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(2 * d),
-            ct2d(2 * d, 2 * d, (5, 5)),
-            nn.LeakyReLU(0.2),
             ct2d(2 * d, d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(d),
@@ -312,6 +320,10 @@ class Discriminator(nn.Module):
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2),
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2)
         )
         self.dx = nn.Sequential(
@@ -322,8 +334,6 @@ class Discriminator(nn.Module):
             c2d(d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(2 * d),
-            c2d(2 * d, 2 * d, (5, 5)),
-            nn.LeakyReLU(0.2),
             c2d(2 * d, 4 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(4 * d),
@@ -333,10 +343,16 @@ class Discriminator(nn.Module):
             c2d(8 * d, 16 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(16 * d),
+            c2d(16 * d, 16 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
             c2d(16 * d, LATENT_DIM, (5, 5))
         )
         self.dxz = nn.Sequential(
             nn.Conv2d(2 * LATENT_DIM, 1024, (1, 1), (1, 1)),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2),
             nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2),
@@ -403,9 +419,6 @@ def train(nocall_directory,
     spect_ss = (spect_ss / n_batches).float().to(device)  # E[X^2]
     spect_std = torch.sqrt(spect_ss - spect_mean.square())
     stds_kept = 3
-
-    print('mean:', spect_mean.isnan().sum())
-    print('std:', spect_mean.isnan().sum())
 
     def spect_to_img(spect_):
         spect_ = (spect_ - spect_mean) / (spect_std + 1e-6)
