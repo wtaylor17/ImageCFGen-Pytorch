@@ -320,10 +320,6 @@ class Discriminator(nn.Module):
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2),
             nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.2),
-            nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.2),
-            nn.Conv2d(LATENT_DIM, LATENT_DIM, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2)
         )
         self.dx = nn.Sequential(
@@ -332,6 +328,8 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(d),
             c2d(d, 2 * d, (5, 5)),
+            nn.LeakyReLU(0.2),
+            c2d(2 * d, 2 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(2 * d),
             c2d(2 * d, 4 * d, (5, 5)),
@@ -343,16 +341,10 @@ class Discriminator(nn.Module):
             c2d(8 * d, 16 * d, (5, 5)),
             nn.LeakyReLU(0.2),
             # nn.BatchNorm2d(16 * d),
-            c2d(16 * d, 16 * d, (5, 5)),
-            nn.LeakyReLU(0.2),
             c2d(16 * d, LATENT_DIM, (5, 5))
         )
         self.dxz = nn.Sequential(
             nn.Conv2d(2 * LATENT_DIM, 1024, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.2),
-            nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
-            nn.LeakyReLU(0.2),
-            nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2),
             nn.Conv2d(1024, 1024, (1, 1), (1, 1)),
             nn.LeakyReLU(0.2),
