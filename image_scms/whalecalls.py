@@ -386,7 +386,8 @@ def train(nocall_directory,
           device='cpu',
           save_images_every=2,
           batch_size=32,
-          image_output_path=''):
+          image_output_path='',
+          filter_length=None):
     E = Encoder().to(device)
     G = Generator().to(device)
     D = Discriminator().to(device)
@@ -406,7 +407,8 @@ def train(nocall_directory,
     data = WhaleCallData(nocall_directory,
                          gunshot_directory,
                          upcall_directory,
-                         device=device)
+                         device=device,
+                         filter_length=filter_length)
     print('Done')
 
     spect_mean, spect_ss, n_batches = 0, 0, 0
