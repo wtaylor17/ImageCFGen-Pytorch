@@ -177,9 +177,7 @@ class WhaleCallData:
                 a = audio_data[start:end]
 
                 if self.filter_length:
-                    a = torch.from_numpy(
-                        signal.lfilter([1.0 / self.filter_length] * self.filter_length, 1.0, a)
-                    ).float().to(self.device)
+                    a = signal.lfilter([1.0 / self.filter_length] * self.filter_length, 1.0, a)
 
                 batch["audio"].append(a)
                 batch["path"].append(paths[i])
