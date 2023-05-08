@@ -7,6 +7,7 @@ from pathlib import Path
 import torchaudio
 from scipy.io.wavfile import read as read_wav, write as write_wav
 from scipy.io import loadmat
+from scipy import signal
 from functools import partial
 from tqdm import tqdm
 
@@ -33,9 +34,11 @@ class WhaleCallData:
                  shotgun_directory: str,
                  upcall_directory: str,
                  device="cpu",
-                 validation_split=0.2, seed=42):
+                 validation_split=0.2, seed=42,
+                 filter_length=None):
         np.random.seed(seed)
         torch.manual_seed(seed)
+        self.filter_length = filter_length
 
         self.device = device
         self.audio_to_spectrogram = torchaudio.transforms.Spectrogram(
@@ -131,7 +134,7 @@ class WhaleCallData:
     def stream(self, transform=True, batch_size=64, shuffle=True, mode='train'):
         paths = (self.nocall_train_paths,
                  self.shotgun_train_paths,
-                 self.upcall_train_paths)\
+                 self.upcall_train_paths) \
             if mode == 'train' \
             else (self.nocall_validation_paths,
                   self.shotgun_validation_paths,
@@ -171,7 +174,14 @@ class WhaleCallData:
                 start, end = t0 - pad, t1 + pad
                 start = max(0, int(sr * start))
                 end = min(len(audio_data), int(sr * end))
-                batch["audio"].append(audio_data[start:end])
+                a = audio_data[start:end]
+
+                if self.filter_length:
+                    a = torch.from_numpy(
+                        signal.lfilter([1.0 / self.filter_length] * self.filter_length, 1.0, a)
+                    ).float().to(self.device)
+
+                batch["audio"].append(a)
                 batch["path"].append(paths[i])
                 batch["time"].append([t0, t1])
                 if len(batch["audio"][-1]) < 3 * sr:
@@ -428,7 +438,7 @@ def train(nocall_directory,
         E.train()
         G.train()
         tq = tqdm(data.stream(batch_size=batch_size),
-                              total=n_batches)
+                  total=n_batches)
         for i, batch in enumerate(tq):
             images = batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
             c = {k: torch.clone(batch[k]).int().to(device)
