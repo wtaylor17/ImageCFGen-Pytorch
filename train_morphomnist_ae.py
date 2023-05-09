@@ -115,7 +115,7 @@ if __name__ == '__main__':
             tq.set_postfix(mse=cur_loss / (i + 1))
         with torch.no_grad():
             xt = 2 * x_test.reshape((-1, 1, 28, 28)) / 255.0 - 1
-            xr = E(G(xt))
+            xr = G(E(xt))
             loss = (xr - x).square().mean().item()
             print('Test loss:', loss)
 
