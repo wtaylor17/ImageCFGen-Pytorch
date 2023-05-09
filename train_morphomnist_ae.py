@@ -88,14 +88,14 @@ if __name__ == '__main__':
     )).float().to(device)
 
     y_train = a_train[:, :10].float()
+    y_test = a_test[:, :10].float()
 
     E = Encoder(args.latent_dim).to(device)
     G = Generator(args.latent_dim).to(device)
 
     if cls is not None:
-        mask = y_train.argmax(1) == cls
-        x_train = x_train[mask]
-        print(x_train.shape)
+        x_train = x_train[y_train.argmax(1) == cls]
+        x_test = x_test[y_test.argmax(1) == cls]
 
     opt = torch.optim.Adam(list(E.parameters()) + list(G.parameters()),
                            lr=args.learning_rate)
@@ -113,6 +113,11 @@ if __name__ == '__main__':
             opt.step()
             cur_loss += loss.item()
             tq.set_postfix(mse=cur_loss / (i + 1))
+        with torch.no_grad():
+            xt = 2 * x_test.reshape((-1, 1, 28, 28)) / 255.0 - 1
+            xr = E(G(xt))
+            loss = (xr - x).square().mean().item()
+            print('Test loss:', loss)
 
     torch.save({
         'E': E,
