@@ -116,7 +116,7 @@ if __name__ == '__main__':
         with torch.no_grad():
             xt = 2 * x_test.reshape((-1, 1, 28, 28)) / 255.0 - 1
             xr = G(E(xt))
-            loss = (xr - x).square().mean().item()
+            loss = (xr - xt).square().mean().item()
             print('Test loss:', loss)
 
     torch.save({
