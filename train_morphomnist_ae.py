@@ -110,11 +110,6 @@ if __name__ == '__main__':
             xr = G(E(xt))
             print(xr.min(), xr.max(), xr.shape)
             loss = (xr - xt).square().mean().item()
-            import matplotlib.pyplot as plt
-            fig, axs = plt.subplots(1, 2)
-            axs[0].imshow(xt[0].reshape((28, 28)))
-            axs[1].imshow(xr[0].reshape((28, 28)))
-            plt.show()
             print('Test loss:', loss)
 
     torch.save({
