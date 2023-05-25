@@ -28,6 +28,13 @@ def init_weights(layer, std=0.001):
             torch.nn.init.constant_(layer.bias, 0)
 
 
+def signaltonoise(a, axis=0, ddof=0):
+    a = np.asanyarray(a)
+    m = a.mean(axis)
+    sd = a.std(axis=axis, ddof=ddof)
+    return np.where(sd == 0, 0, m / sd)
+
+
 class WhaleCallData:
     def __init__(self,
                  nocall_directory: str,
@@ -35,7 +42,8 @@ class WhaleCallData:
                  upcall_directory: str,
                  device="cpu",
                  validation_split=0.2, seed=42,
-                 filter_length=None):
+                 filter_length=None,
+                 min_upcall_snr=-2.0):
         np.random.seed(seed)
         torch.manual_seed(seed)
         self.filter_length = filter_length
@@ -49,6 +57,7 @@ class WhaleCallData:
             n_fft=511, win_length=128, hop_length=24,
         ).to(self.device)
         self.image_to_audio = lambda x: self.spectrogram_to_audio(x.exp())
+        self.min_upcall_snr = min_upcall_snr
 
         self.shotgun_call_times = {}
         shotgun_log_paths = list(map(str, Path(shotgun_directory).rglob("*.mat")))
@@ -175,7 +184,9 @@ class WhaleCallData:
                 start = max(0, int(sr * start))
                 end = min(len(audio_data), int(sr * end))
                 a = audio_data[start:end]
-
+                snr = signaltonoise(a).max()
+                if call_type[i].argmax() == 2 and snr < self.min_upcall_snr:
+                    continue
                 if self.filter_length:
                     a = signal.lfilter([1.0 / self.filter_length] * self.filter_length, 1.0, a)
 
