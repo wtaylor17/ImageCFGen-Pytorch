@@ -362,7 +362,7 @@ class WhaleCallVAE(nn.Module):
         x_reshaped = x.reshape((-1, IMAGE_SHAPE[0] * IMAGE_SHAPE[1]))
         for _ in range(num_samples):
             z = z_mean + torch.randn(z_mean.shape).to(device) * z_std
-            lp = lp + self.dist.condition((z, c)).log_prob(x_reshaped)
+            lp = lp + self.dist.condition((z, c)).log_prob(x_reshaped).sum(1)
         lp = lp / num_samples
         dkl = .5 * (torch.square(z_std) +
                     torch.square(z_mean) -
