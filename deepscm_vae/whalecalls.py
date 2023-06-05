@@ -344,8 +344,8 @@ class WhaleCallVAE(nn.Module):
         super().__init__()
         self.encoder = VAEEncoder().to(device)
         self.decoder = VAEDecoder().to(device)
-        self.base = dist.MultivariateNormal(torch.zeros((28 * 28,)).to(device),
-                                            torch.eye(28 * 28).to(device))
+        self.base = dist.MultivariateNormal(torch.zeros((IMAGE_SHAPE[0] * IMAGE_SHAPE[1],)).to(device),
+                                            torch.eye(IMAGE_SHAPE[0] * IMAGE_SHAPE[1]).to(device))
         self.dec_transform = WhaleCallDecoderTransformation(self.decoder,
                                                             device=device)
 
@@ -359,7 +359,7 @@ class WhaleCallVAE(nn.Module):
         z_mean, z_log_var = self.encoder(x, c)
         z_std = torch.exp(z_log_var * .5)
         lp = 0
-        x_reshaped = x.reshape((-1, 28 * 28))
+        x_reshaped = x.reshape((-1, IMAGE_SHAPE[0] * IMAGE_SHAPE[1]))
         for _ in range(num_samples):
             z = z_mean + torch.randn(z_mean.shape).to(device) * z_std
             lp = lp + self.dist.condition((z, c)).log_prob(x_reshaped)
