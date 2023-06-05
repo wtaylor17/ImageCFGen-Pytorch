@@ -344,8 +344,8 @@ class WhaleCallVAE(nn.Module):
         super().__init__()
         self.encoder = VAEEncoder().to(device)
         self.decoder = VAEDecoder().to(device)
-        self.base = dist.Normal(torch.zeros((IMAGE_SHAPE[0]*IMAGE_SHAPE[1],)),
-                                torch.ones((IMAGE_SHAPE[0]*IMAGE_SHAPE[1],)))
+        self.base = dist.Normal(torch.zeros((IMAGE_SHAPE[0]*IMAGE_SHAPE[1],)).to(device),
+                                torch.ones((IMAGE_SHAPE[0]*IMAGE_SHAPE[1],)).to(device))
         self.dec_transform = WhaleCallDecoderTransformation(self.decoder,
                                                             device=device)
 
