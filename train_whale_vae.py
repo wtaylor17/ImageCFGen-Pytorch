@@ -8,9 +8,11 @@ if __name__ == '__main__':
     l_rate = 1e-4
     batch_size = 32
     image_output_path = "vae_whale_results"
+    kl_weight = 100
     vae, _ = whalecalls.train("WhaleData/Nocall", "WhaleData/Gunshot", "WhaleData/Upcall",
                               n_epochs=n_epochs, device=device, save_images_every=save_images_every,
-                              image_output_path=image_output_path, batch_size=batch_size, l_rate=l_rate)
+                              image_output_path=image_output_path, batch_size=batch_size, l_rate=l_rate,
+                              kl_weight=kl_weight)
     torch.save({
         "vae": vae
     }, "whale_vae.tar")
