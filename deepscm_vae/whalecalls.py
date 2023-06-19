@@ -386,7 +386,8 @@ def train(nocall_directory,
     vae.encoder.apply(init_weights)
     vae.decoder.apply(init_weights)
     optimizer = torch.optim.Adam(vae.parameters(),
-                                 lr=l_rate)
+                                 lr=l_rate,
+                                 weight_decay=0.01)
 
     print('Loading dataset...')
     data = WhaleCallData(nocall_directory,
