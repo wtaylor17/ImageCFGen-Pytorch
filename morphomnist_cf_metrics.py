@@ -26,7 +26,7 @@ if __name__ == '__main__':
     )).float().to(device)
     x_test = 2 * np.load(
         os.path.join(args.data_dir, 'mnist-x-test.npy')
-    ).reshape((-1, 1, 28, 28)) / 255.0 - 1
+    ).reshape((-1, 1, 28, 28)).to(device) / 255.0 - 1
 
     np.random.seed(args.seed)
 
@@ -106,7 +106,7 @@ if __name__ == '__main__':
             cf = torch.from_numpy(cf).float().to(device)
         cf_ae = torch.load(f'morphomnist_aes/{c}.tar', map_location=device)
         r1 = cf_ae['G'](cf_ae['E'](cf)).detach()
-        return (cf - r1).square().sum().detach().item()
+        return (cf - r1).square().sum().detach().cpu().item()
 
     def all_rec(cf, c):
         if type(cf) is np.ndarray:
@@ -115,7 +115,7 @@ if __name__ == '__main__':
         all_ae = torch.load(f'morphomnist_aes/all.tar', map_location=device)
         r1 = cf_ae['G'](cf_ae['E'](cf)).detach()
         r2 = all_ae['G'](all_ae['E'](cf)).detach()
-        return (r1 - r2).square().sum().detach().item()
+        return (r1 - r2).square().sum().detach().cpu().item()
 
     n = len(x_test)
     metrics = {
@@ -161,11 +161,11 @@ if __name__ == '__main__':
             k: v[i:i + 1]
             for k, v in a_test_scaled.items()
         }
-        digit = oc[i].item()
+        digit = oc[i].cpu().item()
         metrics['digit'].append(digit)
-        thickness = a_test['thickness'][i].item()
-        intensity = a_test['intensity'][i].item()
-        slant = a_test['slant'][i].item()
+        thickness = a_test['thickness'][i].cpu().item()
+        intensity = a_test['intensity'][i].cpu().item()
+        slant = a_test['slant'][i].cpu().item()
         metrics['thickness'].append(thickness)
         metrics['intensity'].append(intensity)
         metrics['slant'].append(slant)
