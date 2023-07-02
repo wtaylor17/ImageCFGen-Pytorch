@@ -42,10 +42,10 @@ class DeepCounterfactualExplainer:
             if k != self.target_feature
         }
 
-        eye = torch.eye(attrs[self.target_feature].shape[1])
+        eye = torch.eye(attrs[self.target_feature].shape[1]).to(x.device)
         eye_original = eye[original_class].reshape((1, eye.shape[1])).repeat(sample_points, 1)
         eye_target = eye[target_class].reshape((1, eye.shape[1])).repeat(sample_points, 1)
-        probs = torch.linspace(0, 1, sample_points).reshape((sample_points, 1))
+        probs = torch.linspace(0, 1, sample_points).reshape((sample_points, 1)).to(x.device)
         cf_attrs[self.target_feature] = (1 - probs) * eye_original + probs * eye_target
 
         with torch.no_grad():
@@ -123,12 +123,12 @@ class HingeLossCFExplainer:
 
         params = {
             k: torch.nn.Parameter(0.01 * torch.randn((1, attrs[k].shape[1])),
-                                  requires_grad=True)
+                                  requires_grad=True).to(x.device)
             for k in attrs
             if k not in self.features_to_ignore
         }
         if train_z:
-            params["z"] = torch.randn(codes.shape)
+            params["z"] = torch.randn(codes.shape).to(x.device)
 
         opt = torch.optim.Adam(list(params.values()), lr=lr)
 
