@@ -26,7 +26,7 @@ if __name__ == '__main__':
     )).float().to(device)
     x_test = 2 * np.load(
         os.path.join(args.data_dir, 'mnist-x-test.npy')
-    ).reshape((-1, 1, 28, 28)).to(device) / 255.0 - 1
+    ).reshape((-1, 1, 28, 28)) / 255.0 - 1
 
     np.random.seed(args.seed)
 
@@ -98,7 +98,7 @@ if __name__ == '__main__':
         clf,
         preprocess_function=lambda x_: x_.data.reshape((-1, 1, 28, 28))
     )
-    x_test = torch.from_numpy(x_test).float()
+    x_test = torch.from_numpy(x_test).float().to(device)
     oc = a_test_scaled["digit"].argmax(1)
 
     def ae_rec(cf, c):
