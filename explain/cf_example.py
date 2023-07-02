@@ -122,8 +122,7 @@ class HingeLossCFExplainer:
             return self.c * h + m, h, m
 
         params = {
-            k: torch.nn.Parameter(0.01 * torch.randn((1, attrs[k].shape[1])),
-                                  requires_grad=True).to(x.device)
+            k: 0.01 * torch.randn((1, attrs[k].shape[1]), device=x.device, requires_grad=True)
             for k in attrs
             if k not in self.features_to_ignore
         }
