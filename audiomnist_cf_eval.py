@@ -81,7 +81,7 @@ if __name__ == "__main__":
                     continue
                 print('cf digit', cf_d)
                 acf = dict(**ad)
-                acf["digit"] = torch.zeros((len(xd), 10))
+                acf["digit"] = torch.zeros((len(xd), 10)).float()
                 acf["digit"][:, cf_d] = 1
 
                 bigan_cf = G(bigan_codes, acf).flatten(start_dim=1)
