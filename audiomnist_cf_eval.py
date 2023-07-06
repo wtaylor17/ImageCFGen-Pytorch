@@ -59,7 +59,7 @@ if __name__ == "__main__":
         ))
         subject_audio = torch.concat([b["audio"] for b in subject_batches], dim=0)
         subject_attrs = {
-            k: torch.concat([b[k] for b in subject_batches], dim=0)
+            k: torch.concat([b[k] for b in subject_batches], dim=0).float()
             for k in subject_batches[0]
             if k in ATTRIBUTE_DIMS
         }
@@ -68,7 +68,7 @@ if __name__ == "__main__":
             mask = subject_attrs["digit"].argmax(1) == d
             xd = spect_to_img(subject_audio[mask])
             ad = {
-                k: v[mask]
+                k: v[mask].float()
                 for k, v in subject_attrs.items()
                 if k in ATTRIBUTE_DIMS
             }
