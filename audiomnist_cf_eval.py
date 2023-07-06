@@ -9,12 +9,12 @@ if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     bigan = torch.load('audio-mnist-retrain.tar', map_location=device)
-    E = Encoder()
+    E = Encoder().to(device)
     E.load_state_dict(bigan["E_state_dict"])
-    G = Generator()
+    G = Generator().to(device)
     G.load_state_dict(bigan["G_state_dict"])
     bigan_finetuned = torch.load('audio-mnist-bigan-finetuned-mse.tar', map_location=device)
-    E_ft, G_ft = Encoder(), Generator()
+    E_ft, G_ft = Encoder().to(device), Generator().to(device)
     E_ft.load_state_dict(bigan_finetuned["E_state_dict"])
     G_ft.load_state_dict(bigan_finetuned["G_state_dict"])
     vae = torch.load('audiomnist-vae.tar', map_location=device)['vae']
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         subject_attrs = {
             k: torch.concat([b[k] for b in subject_batches], dim=0)
             for k in subject_batches[0]
-            if k != "audio"
+            if k in ATTRIBUTE_DIMS
         }
         for d in range(10):
             print('original digit', d)
@@ -89,9 +89,9 @@ if __name__ == "__main__":
                 vae_cf = vae.decoder(vae_codes, acf).flatten(start_dim=1)
 
                 # loop through data from different subject but same label
-                bigan_other_err = torch.zeros((len(bigan_cf),))
-                bigan_ft_other_err = torch.zeros((len(bigan_cf),))
-                vae_other_err = torch.zeros((len(bigan_cf),))
+                bigan_other_err = torch.zeros((len(bigan_cf),)).to(device)
+                bigan_ft_other_err = torch.zeros((len(bigan_cf),)).to(device)
+                vae_other_err = torch.zeros((len(bigan_cf),)).to(device)
                 denom = 0
                 for other_batch in data.stream(excluded_subjects=[subject],
                                                excluded_runs=list(set(range(50)) - set(VALIDATION_RUNS))):
@@ -113,9 +113,9 @@ if __name__ == "__main__":
                 bigan_ft_same_err = (bigan_ft_cf.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
                 vae_same_err = (vae_cf.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
 
-                bigan_mat[subject - 1, d, cf_d] = bigan_same_err.mean().item() / bigan_other_err.mean().item()
-                vae_mat[subject - 1, d, cf_d] = vae_same_err.mean().item() / vae_other_err.mean().item()
-                bigan_ft_mat[subject - 1, d, cf_d] = bigan_ft_same_err.mean().item() / bigan_ft_other_err.mean().item()
+                bigan_mat[subject - 1, d, cf_d] = bigan_same_err.mean().cpu().item() / bigan_other_err.mean().cpu().item()
+                vae_mat[subject - 1, d, cf_d] = vae_same_err.mean().item() / vae_other_err.mean().cpu().item()
+                bigan_ft_mat[subject - 1, d, cf_d] = bigan_ft_same_err.mean().cpu().item() / bigan_ft_other_err.mean().cpu().item()
 
     np.save('bigan_cf_metric_mat.npy', bigan_mat)
     np.save('bigan_ft_cf_metric_mat.npy', bigan_ft_mat)
