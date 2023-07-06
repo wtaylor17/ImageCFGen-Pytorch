@@ -79,7 +79,7 @@ class VAEDecoder(nn.Module):
         )
 
     def forward(self, z: torch.Tensor, c: AttributeDict):
-        processed_digit = c["digit"].matmul(self.digit_embedding.weight).reshape((-1, 256, 1, 1))
+        processed_digit = c["digit"].float().matmul(self.digit_embedding.weight).reshape((-1, 256, 1, 1))
         processed_continuous = {
             k: continuous_feature_map(v, size=(1, 1))
             for k, v in c.items()
