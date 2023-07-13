@@ -86,11 +86,11 @@ if __name__ == "__main__":
         axs[0, 2].set_title('ImageCFGen (fine-tuned)')
         axs[1, 2].plot(bigan_ft_audio.reshape((-1,)))
 
-        axs[0, 2].imshow(vae_rec[0].cpu().reshape((128, 128)).numpy()[::-1], vmin=-1, vmax=1)
-        axs[0, 2].set_xticks([])
-        axs[0, 2].set_yticks([])
-        axs[0, 2].set_title('DeepSCM')
-        axs[1, 2].plot(vae_audio.reshape((-1,)))
+        axs[0, 3].imshow(vae_rec[0].cpu().reshape((128, 128)).numpy()[::-1], vmin=-1, vmax=1)
+        axs[0, 3].set_xticks([])
+        axs[0, 3].set_yticks([])
+        axs[0, 3].set_title('DeepSCM')
+        axs[1, 3].plot(vae_audio.reshape((-1,)))
 
         fig.suptitle('Audio-MNIST reconstructions')
         plt.savefig('audiomnist_reconstruction.png')
