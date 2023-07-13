@@ -370,7 +370,7 @@ def train(path_to_zip: str,
                                                    excluded_runs=VALIDATION_RUNS),
                                        total=n_batches)):
             images = batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
-            c = {k: torch.clone(batch[k]).int().to(device)
+            c = {k: torch.clone(batch[k]).float().to(device)
                  for k in attr_cols if k in ATTRIBUTE_DIMS}
             images = spect_to_img(images)
 
