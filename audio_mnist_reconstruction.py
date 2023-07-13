@@ -93,4 +93,5 @@ if __name__ == "__main__":
         axs[1, 3].plot(vae_audio.reshape((-1,)))
 
         fig.suptitle('Audio-MNIST reconstructions')
+        fig.tight_layout()
         plt.savefig('audiomnist_reconstruction.png')
