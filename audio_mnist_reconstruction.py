@@ -68,25 +68,25 @@ if __name__ == "__main__":
 
         fig, axs = plt.subplots(2, 4)
 
-        axs[0, 0].imshow(img[0].reshape((128, 128)).numpy()[::-1], vmin=-1, vmax=1)
+        axs[0, 0].imshow(img[0].cpu().reshape((128, 128)).numpy()[::-1], vmin=-1, vmax=1)
         axs[0, 0].set_xticks([])
         axs[0, 0].set_yticks([])
         axs[0, 0].set_title('Original')
         axs[1, 0].plot(real_audio.reshape((-1,)))
 
-        axs[0, 1].imshow(bigan_rec[0].reshape((128, 128)).numpy()[::-1], vmin=-1, vmax=1)
+        axs[0, 1].imshow(bigan_rec[0].cpu().reshape((128, 128)).numpy()[::-1], vmin=-1, vmax=1)
         axs[0, 1].set_xticks([])
         axs[0, 1].set_yticks([])
         axs[0, 1].set_title('ImageCFGen')
         axs[1, 0].plot(bigan_audio.reshape((-1,)))
 
-        axs[0, 1].imshow(bigan_ft_rec[0].reshape((128, 128)).numpy()[::-1], vmin=-1, vmax=1)
+        axs[0, 1].imshow(bigan_ft_rec[0].cpu().reshape((128, 128)).numpy()[::-1], vmin=-1, vmax=1)
         axs[0, 1].set_xticks([])
         axs[0, 1].set_yticks([])
         axs[0, 1].set_title('ImageCFGen (fine-tuned)')
         axs[1, 0].plot(bigan_ft_audio.reshape((-1,)))
 
-        axs[0, 1].imshow(vae_rec[0].reshape((128, 128)).numpy()[::-1], vmin=-1, vmax=1)
+        axs[0, 1].imshow(vae_rec[0].cpu().reshape((128, 128)).numpy()[::-1], vmin=-1, vmax=1)
         axs[0, 1].set_xticks([])
         axs[0, 1].set_yticks([])
         axs[0, 1].set_title('DeepSCM')
