@@ -61,10 +61,10 @@ if __name__ == "__main__":
         bigan_ft_rec = G_ft(E_ft(img, batch), batch)[0:1]
         vae_rec = vae.decoder(vae.encoder(img, batch)[0], batch)[0:1]
 
-        real_audio = data.spectrogram_to_audio(batch["audio"][0:1]).cpu().numpy()
-        bigan_audio = data.spectrogram_to_audio(img_to_spect(bigan_rec)).cpu().numpy()
-        bigan_ft_audio = data.spectrogram_to_audio(img_to_spect(bigan_ft_rec)).cpu().numpy()
-        vae_audio = data.spectrogram_to_audio(img_to_spect(vae_rec)).cpu().numpy()
+        real_audio = data.inv_transforms["audio"](batch["audio"][0:1]).cpu().numpy()
+        bigan_audio = data.inv_transforms["audio"](img_to_spect(bigan_rec)).cpu().numpy()
+        bigan_ft_audio = data.inv_transforms["audio"](img_to_spect(bigan_ft_rec)).cpu().numpy()
+        vae_audio = data.inv_transforms["audio"](img_to_spect(vae_rec)).cpu().numpy()
 
         fig, axs = plt.subplots(2, 4)
 
