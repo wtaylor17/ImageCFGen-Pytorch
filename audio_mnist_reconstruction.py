@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
         batch = next(data.stream(excluded_runs=list(set(range(50)) - set(VALIDATION_RUNS))))
         img = spect_to_img(batch["audio"]).float()
-        batch = {k: v.float() for k, v in batch.items() if k in ATTRIBUTE_DIMS}
+        batch = {k: v.float() for k, v in batch.items() if k in ATTRIBUTE_DIMS or k == "audio"}
         bigan_rec = G(E(img, batch), batch)[0:1]
         bigan_ft_rec = G_ft(E_ft(img, batch), batch)[0:1]
         vae_rec = vae.decoder(vae.encoder(img, batch)[0], batch)[0:1]
