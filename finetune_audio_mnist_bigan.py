@@ -71,7 +71,7 @@ if __name__ == '__main__':
         for batch in tqdm(data.stream(batch_size=64,
                                       excluded_runs=VALIDATION_RUNS)):
             images = batch["audio"].reshape((-1, 1, *IMAGE_SHAPE)).float().to(device)
-            a = {k: torch.clone(batch[k]).int().to(device)
+            a = {k: torch.clone(batch[k]).float().to(device)
                  for k in ATTRIBUTE_DIMS
                  if k != "audio"}
             x = spect_to_img(images)
