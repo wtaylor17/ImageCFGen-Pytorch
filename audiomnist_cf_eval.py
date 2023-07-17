@@ -47,11 +47,11 @@ if __name__ == "__main__":
     def img_to_spect(img_):
         return img_ * stds_kept * (spect_std + 1e-6) + spect_mean
 
-    bigan_mat = np.zeros((60, 10, 90))
-    bigan_ft_mat = np.zeros((60, 10, 90))
-    vae_mat = np.zeros((60, 10, 90))
-    bigan_int_mat = np.zeros((60, 10, 90))
-    vae_int_mat = np.zeros((60, 10, 90))
+    bigan_mat = np.zeros((60, 10, 81))
+    bigan_ft_mat = np.zeros((60, 10, 81))
+    vae_mat = np.zeros((60, 10, 81))
+    bigan_int_mat = np.zeros((60, 10, 81))
+    vae_int_mat = np.zeros((60, 10, 81))
 
     for subject in range(1, 61):
         print("computing cfs for subject", subject)

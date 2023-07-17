@@ -15,7 +15,7 @@ from pyro.distributions.conditional import ConditionalTransform
 import pyro.distributions as dist
 
 np.random.seed(42)
-VALIDATION_RUNS = np.random.randint(0, 50, size=(10,)).tolist()
+VALIDATION_RUNS = [38, 7, 42, 10, 14, 18, 20, 22, 28]
 
 LATENT_DIM = 512
 ATTRIBUTE_COUNT = 47
