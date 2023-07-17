@@ -61,7 +61,7 @@ if __name__ == "__main__":
         ))
         subject_audio = torch.concat([b["audio"] for b in subject_batches], dim=0)
         print('subject audio:', subject_audio.shape)
-        print(set(sum((b["run"] for b in subject_batches), [])))
+        print(set(sum((b["run"].flatten().tolist() for b in subject_batches), [])))
         subject_attrs = {
             k: torch.concat([b[k] for b in subject_batches], dim=0).float()
             for k in subject_batches[0]
