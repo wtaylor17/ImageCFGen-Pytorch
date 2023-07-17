@@ -47,9 +47,11 @@ if __name__ == "__main__":
     def img_to_spect(img_):
         return img_ * stds_kept * (spect_std + 1e-6) + spect_mean
 
-    bigan_mat = np.zeros((60, 10, 10))
-    bigan_ft_mat = np.zeros((60, 10, 10))
-    vae_mat = np.zeros((60, 10, 10))
+    bigan_mat = np.zeros((60, 10, 90))
+    bigan_ft_mat = np.zeros((60, 10, 90))
+    vae_mat = np.zeros((60, 10, 90))
+    bigan_int_mat = np.zeros((60, 10, 90))
+    vae_int_mat = np.zeros((60, 10, 90))
 
     for subject in range(1, 61):
         print("computing cfs for subject", subject)
@@ -64,58 +66,68 @@ if __name__ == "__main__":
             if k in ATTRIBUTE_DIMS
         }
         for d in range(10):
-            print('original digit', d)
-            mask = subject_attrs["digit"].argmax(1) == d
-            xd = spect_to_img(subject_audio[mask])
-            ad = {
-                k: v[mask].float()
+            print('CF digit', d)
+            masknd = subject_attrs["digit"].argmax(1) != d
+            xnd = spect_to_img(subject_audio[masknd])
+            a_nd = {
+                k: v[masknd].float()
                 for k, v in subject_attrs.items()
                 if k in ATTRIBUTE_DIMS
             }
-            bigan_codes = E(xd, ad)
-            bigan_ft_codes = E_ft(xd, ad)
-            vae_codes = vae.encoder(xd, ad)[0]
+            bigan_codes = E(xnd, a_nd)
+            bigan_ft_codes = E_ft(xnd, a_nd)
+            vae_codes = vae.encoder(xnd, a_nd)[0]
+            cf_a = dict(**a_nd)
+            cf_a["digit"] = torch.zeros((len(xnd), 10)).float().to(device)
+            cf_a["digit"][:, d] = 1
 
-            for cf_d in range(10):
-                if cf_d == d:
-                    continue
-                print('cf digit', cf_d)
-                acf = dict(**ad)
-                acf["digit"] = torch.zeros((len(xd), 10)).float().to(device)
-                acf["digit"][:, cf_d] = 1
+            # compute interventions/CFs
+            bigan_cf = G(bigan_codes, cf_a).flatten(start_dim=1)
+            bigan_ft_cf = G_ft(bigan_ft_codes, cf_a).flatten(start_dim=1)
+            vae_cf = vae.decoder(vae_codes, cf_a).flatten(start_dim=1)
+            bigan_int = G(torch.randn_like(bigan_codes), cf_a).flatten(start_dim=1)
+            vae_int = vae.decoder(torch.randn_like(vae_codes), cf_a).flatten(start_dim=1)
 
-                bigan_cf = G(bigan_codes, acf).flatten(start_dim=1)
-                bigan_ft_cf = G_ft(bigan_ft_codes, acf).flatten(start_dim=1)
-                vae_cf = vae.decoder(vae_codes, acf).flatten(start_dim=1)
+            # compute mean dist to target manifold for each intervention/CF
+            same_mask = subject_attrs["digit"].argmax(1) == d
+            same_x = spect_to_img(subject_audio[same_mask]).flatten(start_dim=1)
+            bigan_same_err = (bigan_cf.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
+            bigan_ft_same_err = (bigan_ft_cf.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
+            vae_same_err = (vae_cf.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
+            bigan_int_same_err = (bigan_int.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
+            vae_int_same_err = (vae_int.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
 
-                # loop through data from different subject but same label
-                bigan_other_err = torch.zeros((len(bigan_cf),)).to(device)
-                bigan_ft_other_err = torch.zeros((len(bigan_cf),)).to(device)
-                vae_other_err = torch.zeros((len(bigan_cf),)).to(device)
-                denom = 0
-                for other_batch in data.stream(excluded_subjects=[subject],
-                                               excluded_runs=list(set(range(50)) - set(VALIDATION_RUNS))):
-                    other_mask = other_batch["digit"].argmax(1) == cf_d
-                    other_x = spect_to_img(other_batch["audio"][other_mask]).flatten(start_dim=1)
+            bigan_other_err = torch.zeros((len(bigan_cf),)).to(device)
+            bigan_ft_other_err = torch.zeros((len(bigan_cf),)).to(device)
+            vae_other_err = torch.zeros((len(bigan_cf),)).to(device)
+            bigan_int_other_err = torch.zeros((len(bigan_cf),)).to(device)
+            vae_int_other_err = torch.zeros((len(bigan_cf),)).to(device)
+            denom = 0
 
-                    bigan_other_err += (bigan_cf.unsqueeze(1) - other_x).square().sum(dim=(1, 2))
-                    bigan_ft_other_err += (bigan_ft_cf.unsqueeze(1) - other_x).square().sum(dim=(1, 2))
-                    vae_other_err += (vae_cf.unsqueeze(1) - other_x).square().sum(dim=(1, 2))
-                    denom += len(other_x)
+            # compute distances to manifold of other subjects for each intervention/CF
+            for other_batch in data.stream(excluded_subjects=[subject],
+                                           excluded_runs=list(set(range(50)) - set(VALIDATION_RUNS))):
+                other_mask = other_batch["digit"].argmax(1) == d
+                other_x = spect_to_img(other_batch["audio"][other_mask]).flatten(start_dim=1)
 
-                bigan_other_err /= denom
-                bigan_ft_other_err /= denom
-                vae_other_err /= denom
+                bigan_other_err += (bigan_cf.unsqueeze(1) - other_x).square().sum(dim=(1, 2))
+                bigan_ft_other_err += (bigan_ft_cf.unsqueeze(1) - other_x).square().sum(dim=(1, 2))
+                vae_other_err += (vae_cf.unsqueeze(1) - other_x).square().sum(dim=(1, 2))
+                bigan_int_other_err += (bigan_int.unsqueeze(1) - other_x).square().sum(dim=(1, 2))
+                vae_int_other_err += (vae_int.unsqueeze(1) - other_x).square().sum(dim=(1, 2))
+                denom += len(other_x)
 
-                same_mask = subject_attrs["digit"].argmax(1) == cf_d
-                same_x = spect_to_img(subject_audio[same_mask]).flatten(start_dim=1)
-                bigan_same_err = (bigan_cf.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
-                bigan_ft_same_err = (bigan_ft_cf.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
-                vae_same_err = (vae_cf.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
+            bigan_other_err /= denom
+            bigan_ft_other_err /= denom
+            vae_other_err /= denom
+            vae_int_other_err /= denom
+            bigan_int_other_err /= denom
 
-                bigan_mat[subject - 1, d, cf_d] = bigan_same_err.mean().cpu().item() / bigan_other_err.mean().cpu().item()
-                vae_mat[subject - 1, d, cf_d] = vae_same_err.mean().item() / vae_other_err.mean().cpu().item()
-                bigan_ft_mat[subject - 1, d, cf_d] = bigan_ft_same_err.mean().cpu().item() / bigan_ft_other_err.mean().cpu().item()
+            bigan_mat[subject - 1, d] = (bigan_same_err / bigan_other_err).detach().cpu().numpy()
+            bigan_ft_mat[subject - 1, d] = (bigan_ft_same_err / bigan_ft_other_err).detach().cpu().numpy()
+            vae_mat[subject - 1, d] = (vae_same_err / vae_other_err).detach().cpu().numpy()
+            bigan_int_mat[subject - 1, d] = (bigan_int_same_err / bigan_int_other_err).detach().cpu().numpy()
+            vae_int_mat[subject - 1, d] = (vae_int_same_err / vae_int_other_err).detach().cpu().numpy()
 
     np.save('bigan_cf_metric_mat.npy', bigan_mat)
     np.save('bigan_ft_cf_metric_mat.npy', bigan_ft_mat)
