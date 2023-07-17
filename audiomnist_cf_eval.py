@@ -65,7 +65,6 @@ if __name__ == "__main__":
             for k in subject_batches[0]
             if k in ATTRIBUTE_DIMS
         }
-        print(set(subject_attrs["digit"].argmax(1)))
         for d in range(10):
             print('CF digit', d)
             masknd = subject_attrs["digit"].argmax(1) != d
