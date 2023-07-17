@@ -60,6 +60,7 @@ if __name__ == "__main__":
             excluded_subjects=list(set(range(1, 61)) - {subject})
         ))
         subject_audio = torch.concat([b["audio"] for b in subject_batches], dim=0)
+        print('subject audio:', subject_audio.shape)
         subject_attrs = {
             k: torch.concat([b[k] for b in subject_batches], dim=0).float()
             for k in subject_batches[0]
