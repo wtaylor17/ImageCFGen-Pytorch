@@ -60,8 +60,6 @@ if __name__ == "__main__":
             excluded_subjects=list(set(range(1, 61)) - {subject})
         ))
         subject_audio = torch.concat([b["audio"] for b in subject_batches], dim=0)
-        print('subject audio:', subject_audio.shape)
-        print(set(sum((b["run"].flatten().tolist() for b in subject_batches), [])))
         subject_attrs = {
             k: torch.concat([b[k] for b in subject_batches], dim=0).float()
             for k in subject_batches[0]
@@ -72,7 +70,6 @@ if __name__ == "__main__":
             print('CF digit', d)
             masknd = subject_attrs["digit"].argmax(1) != d
             xnd = spect_to_img(subject_audio[masknd])
-            print(len(xnd), 'utterances from subject having different digit')
             a_nd = {
                 k: v[masknd].float()
                 for k, v in subject_attrs.items()
@@ -95,7 +92,6 @@ if __name__ == "__main__":
             # compute mean dist to target manifold for each intervention/CF
             same_mask = subject_attrs["digit"].argmax(1) == d
             same_x = spect_to_img(subject_audio[same_mask]).flatten(start_dim=1)
-            print(len(same_x), 'utterances from same digit and same subject')
             bigan_same_err = (bigan_cf.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
             bigan_ft_same_err = (bigan_ft_cf.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
             vae_same_err = (vae_cf.unsqueeze(1) - same_x).square().sum(dim=(1, 2)) / len(same_x)
