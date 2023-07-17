@@ -133,3 +133,5 @@ if __name__ == "__main__":
     np.save('bigan_cf_metric_mat.npy', bigan_mat)
     np.save('bigan_ft_cf_metric_mat.npy', bigan_ft_mat)
     np.save('vae_cf_metric_mat.npy', vae_mat)
+    np.save('vae_int_metric_mat.npy', vae_int_mat)
+    np.save('bigan_int_metric_mat.npy', bigan_int_mat)
