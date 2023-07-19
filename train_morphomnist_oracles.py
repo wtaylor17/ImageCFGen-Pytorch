@@ -53,7 +53,7 @@ def train(data_dir: str,
             loss.backward()
             opt.step()
 
-            acc = torch.eq(pred, y).float().mean()
+            acc = torch.eq(torch.round(torch.sigmoid(pred)), y).float().mean()
             tq.set_postfix(dict(loss=loss.item(), acc=acc.item()))
     return model
 
