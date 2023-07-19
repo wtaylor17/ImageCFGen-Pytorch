@@ -36,7 +36,7 @@ def train(data_dir: str,
     a_train = torch.from_numpy(np.load(
         os.path.join(data_dir, 'mnist-a-train.npy')
     )).float().to(device)[:, :10]
-    y_train = torch.zeros((x_train.size(0), 1))
+    y_train = torch.zeros((x_train.size(0), 1)).to(device)
     y_train[a_train.argmax(1) == target_class] = 1
     criterion = nn.BCEWithLogitsLoss()
 
