@@ -191,25 +191,25 @@ if __name__ == '__main__':
         metrics['bigan_label'].append(bigan_label)
         metrics['bigan_os'].append(int(bigan_label == oracle_bigan_label))
         metrics['bigan_lvs'].append(js_div(oracle_dist,
-                                           oracle(torch.from_numpy(bigan_cf).float().to(device))))
+                                           oracle(bigan_cf)))
         bigan_agnostic_label = clf(bigan_agnostic_cf.float().to(device)).argmax(1).item()
         oracle_bigan_agnostic_label = oracle(bigan_agnostic_cf.float().to(device)).argmax(1).item()
         metrics['bigan_agnostic_label'].append(bigan_agnostic_label)
         metrics['bigan_agnostic_os'].append(int(bigan_agnostic_label == oracle_bigan_agnostic_label))
         metrics['bigan_agnostic_lvs'].append(js_div(oracle_dist,
-                                                    oracle(torch.from_numpy(bigan_agnostic_cf).float().to(device))))
+                                                    oracle(bigan_agnostic_cf.float().to(device))))
         vae_label = clf(vae_cf.float().to(device)).argmax(1).item()
         oracle_vae_label = oracle(vae_cf.float().to(device)).argmax(1).item()
         metrics['vae_label'].append(vae_label)
         metrics['vae_os'].append(int(vae_label == oracle_vae_label))
         metrics['vae_lvs'].append(js_div(oracle_dist,
-                                         oracle(torch.from_numpy(vae_cf).float().to(device))))
+                                         oracle(vae_cf.float().to(device))))
         vae_agnostic_label = clf(vae_agnostic_cf.float().to(device)).argmax(1).item()
         oracle_vae_agnostic_label = oracle(vae_agnostic_cf.float().to(device)).argmax(1).item()
         metrics['vae_agnostic_label'].append(vae_agnostic_label)
         metrics['vae_agnostic_os'].append(int(vae_agnostic_label == oracle_vae_agnostic_label))
         metrics['vae_agnostic_lvs'].append(js_div(oracle_dist,
-                                                  oracle(torch.from_numpy(vae_agnostic_cf).float().to(device))))
+                                                  oracle(vae_agnostic_cf.float().to(device))))
 
     print({k: len(v) for k, v in metrics.items()})
     pd.DataFrame(metrics).to_csv('morphomnist_cf_oracle_metrics.csv')
