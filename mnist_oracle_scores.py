@@ -21,6 +21,8 @@ def kl_div(p: torch.Tensor, q: torch.Tensor):
 
 
 def js_div(p: torch.Tensor, q: torch.Tensor):
+    p = p.softmax(1)
+    q = q.softmax(1)
     m = 0.5 * (p + q)
     js = 0.5 * (kl_div(p, m) + kl_div(q, m))
     return js
