@@ -139,77 +139,78 @@ if __name__ == '__main__':
         'bigan_agnostic_lvs': [],
         'vae_agnostic_lvs': []
     }
-    for i in tqdm(range(n), total=n):
-        x = x_test[i:i + 1]
-        a_args = {
-            k: v[i:i + 1]
-            for k, v in a_test_scaled.items()
-        }
-        digit = oc[i].cpu().item()
-        metrics['digit'].append(digit)
-        thickness = a_test['thickness'][i].cpu().item()
-        intensity = a_test['intensity'][i].cpu().item()
-        slant = a_test['slant'][i].cpu().item()
-        metrics['thickness'].append(thickness)
-        metrics['intensity'].append(intensity)
-        metrics['slant'].append(slant)
+    with torch.no_grad():
+        for i in tqdm(range(n), total=n):
+            x = x_test[i:i + 1]
+            a_args = {
+                k: v[i:i + 1]
+                for k, v in a_test_scaled.items()
+            }
+            digit = oc[i].cpu().item()
+            metrics['digit'].append(digit)
+            thickness = a_test['thickness'][i].cpu().item()
+            intensity = a_test['intensity'][i].cpu().item()
+            slant = a_test['slant'][i].cpu().item()
+            metrics['thickness'].append(thickness)
+            metrics['intensity'].append(intensity)
+            metrics['slant'].append(slant)
 
-        contrastive = contrastive_explainer.explain(Image(x.cpu().numpy().reshape((1, 28, 28, 1)),
-                                                          batched=True)) \
-            .explanations[0]['pn'].reshape((1, 1, 28, 28))
-        counterfactual = cf_explainer.explain(Image(x.cpu().numpy().reshape((1, 28, 28, 1)),
-                                                    batched=True)) \
-            .explanations[0]['cf'].reshape((1, 1, 28, 28))
-        cf_label = clf(torch.from_numpy(counterfactual).float().to(device)).argmax(1).item()
-        bigan_cf = bigan_explainer.explain(x, a_args, steps=args.steps,
+            contrastive = contrastive_explainer.explain(Image(x.cpu().numpy().reshape((1, 28, 28, 1)),
+                                                              batched=True)) \
+                .explanations[0]['pn'].reshape((1, 1, 28, 28))
+            counterfactual = cf_explainer.explain(Image(x.cpu().numpy().reshape((1, 28, 28, 1)),
+                                                        batched=True)) \
+                .explanations[0]['cf'].reshape((1, 1, 28, 28))
+            cf_label = clf(torch.from_numpy(counterfactual).float().to(device)).argmax(1).item()
+            bigan_cf = bigan_explainer.explain(x, a_args, steps=args.steps,
+                                               target_class=cf_label,
+                                               train_z=args.train_codes,
+                                               lr=args.lr).reshape((1, 1, 28, 28))
+            bigan_agnostic_cf = bigan_agnostic.explain(x, a_args, cf_label)[0][0].reshape((1, 1, 28, 28))
+            vae_agnostic_cf = vae_agnostic.explain(x, a_args, cf_label)[0][0].reshape((1, 1, 28, 28))
+
+            vae_cf = vae_explainer.explain(x, a_args, steps=args.steps,
                                            target_class=cf_label,
                                            train_z=args.train_codes,
                                            lr=args.lr).reshape((1, 1, 28, 28))
-        bigan_agnostic_cf = bigan_agnostic.explain(x, a_args, cf_label)[0][0].reshape((1, 1, 28, 28))
-        vae_agnostic_cf = vae_agnostic.explain(x, a_args, cf_label)[0][0].reshape((1, 1, 28, 28))
 
-        vae_cf = vae_explainer.explain(x, a_args, steps=args.steps,
-                                       target_class=cf_label,
-                                       train_z=args.train_codes,
-                                       lr=args.lr).reshape((1, 1, 28, 28))
+            oracle_dist = oracle(x)
+            cf_label = clf(torch.from_numpy(counterfactual).float().to(device)).argmax(1).item()
+            oracle_cf_label = oracle(torch.from_numpy(counterfactual).float().to(device)).argmax(1).item()
+            metrics['cf_label'].append(cf_label)
+            metrics['cf_os'].append(int(cf_label == oracle_cf_label))
+            metrics['cf_lvs'].append(js_div(oracle_dist,
+                                            oracle(torch.from_numpy(counterfactual).float().to(device))))
+            pn_label = clf(torch.from_numpy(contrastive).float().to(device)).argmax(1).item()
+            oracle_pn_label = oracle(torch.from_numpy(contrastive).float().to(device)).argmax(1).item()
+            metrics['pn_label'].append(pn_label)
+            metrics['pn_os'].append(int(pn_label == oracle_pn_label))
+            metrics['pn_lvs'].append(js_div(oracle_dist,
+                                            oracle(torch.from_numpy(contrastive).float().to(device))))
+            bigan_label = clf(bigan_cf.float().to(device)).argmax(1).item()
+            oracle_bigan_label = oracle(bigan_cf.float().to(device)).argmax(1).item()
+            metrics['bigan_label'].append(bigan_label)
+            metrics['bigan_os'].append(int(bigan_label == oracle_bigan_label))
+            metrics['bigan_lvs'].append(js_div(oracle_dist,
+                                               oracle(bigan_cf)))
+            bigan_agnostic_label = clf(bigan_agnostic_cf.float().to(device)).argmax(1).item()
+            oracle_bigan_agnostic_label = oracle(bigan_agnostic_cf.float().to(device)).argmax(1).item()
+            metrics['bigan_agnostic_label'].append(bigan_agnostic_label)
+            metrics['bigan_agnostic_os'].append(int(bigan_agnostic_label == oracle_bigan_agnostic_label))
+            metrics['bigan_agnostic_lvs'].append(js_div(oracle_dist,
+                                                        oracle(bigan_agnostic_cf.float().to(device))))
+            vae_label = clf(vae_cf.float().to(device)).argmax(1).item()
+            oracle_vae_label = oracle(vae_cf.float().to(device)).argmax(1).item()
+            metrics['vae_label'].append(vae_label)
+            metrics['vae_os'].append(int(vae_label == oracle_vae_label))
+            metrics['vae_lvs'].append(js_div(oracle_dist,
+                                             oracle(vae_cf.float().to(device))))
+            vae_agnostic_label = clf(vae_agnostic_cf.float().to(device)).argmax(1).item()
+            oracle_vae_agnostic_label = oracle(vae_agnostic_cf.float().to(device)).argmax(1).item()
+            metrics['vae_agnostic_label'].append(vae_agnostic_label)
+            metrics['vae_agnostic_os'].append(int(vae_agnostic_label == oracle_vae_agnostic_label))
+            metrics['vae_agnostic_lvs'].append(js_div(oracle_dist,
+                                                      oracle(vae_agnostic_cf.float().to(device))))
 
-        oracle_dist = oracle(x)
-        cf_label = clf(torch.from_numpy(counterfactual).float().to(device)).argmax(1).item()
-        oracle_cf_label = oracle(torch.from_numpy(counterfactual).float().to(device)).argmax(1).item()
-        metrics['cf_label'].append(cf_label)
-        metrics['cf_os'].append(int(cf_label == oracle_cf_label))
-        metrics['cf_lvs'].append(js_div(oracle_dist,
-                                        oracle(torch.from_numpy(counterfactual).float().to(device))))
-        pn_label = clf(torch.from_numpy(contrastive).float().to(device)).argmax(1).item()
-        oracle_pn_label = oracle(torch.from_numpy(contrastive).float().to(device)).argmax(1).item()
-        metrics['pn_label'].append(pn_label)
-        metrics['pn_os'].append(int(pn_label == oracle_pn_label))
-        metrics['pn_lvs'].append(js_div(oracle_dist,
-                                        oracle(torch.from_numpy(contrastive).float().to(device))))
-        bigan_label = clf(bigan_cf.float().to(device)).argmax(1).item()
-        oracle_bigan_label = oracle(bigan_cf.float().to(device)).argmax(1).item()
-        metrics['bigan_label'].append(bigan_label)
-        metrics['bigan_os'].append(int(bigan_label == oracle_bigan_label))
-        metrics['bigan_lvs'].append(js_div(oracle_dist,
-                                           oracle(bigan_cf)))
-        bigan_agnostic_label = clf(bigan_agnostic_cf.float().to(device)).argmax(1).item()
-        oracle_bigan_agnostic_label = oracle(bigan_agnostic_cf.float().to(device)).argmax(1).item()
-        metrics['bigan_agnostic_label'].append(bigan_agnostic_label)
-        metrics['bigan_agnostic_os'].append(int(bigan_agnostic_label == oracle_bigan_agnostic_label))
-        metrics['bigan_agnostic_lvs'].append(js_div(oracle_dist,
-                                                    oracle(bigan_agnostic_cf.float().to(device))))
-        vae_label = clf(vae_cf.float().to(device)).argmax(1).item()
-        oracle_vae_label = oracle(vae_cf.float().to(device)).argmax(1).item()
-        metrics['vae_label'].append(vae_label)
-        metrics['vae_os'].append(int(vae_label == oracle_vae_label))
-        metrics['vae_lvs'].append(js_div(oracle_dist,
-                                         oracle(vae_cf.float().to(device))))
-        vae_agnostic_label = clf(vae_agnostic_cf.float().to(device)).argmax(1).item()
-        oracle_vae_agnostic_label = oracle(vae_agnostic_cf.float().to(device)).argmax(1).item()
-        metrics['vae_agnostic_label'].append(vae_agnostic_label)
-        metrics['vae_agnostic_os'].append(int(vae_agnostic_label == oracle_vae_agnostic_label))
-        metrics['vae_agnostic_lvs'].append(js_div(oracle_dist,
-                                                  oracle(vae_agnostic_cf.float().to(device))))
-
-    print({k: len(v) for k, v in metrics.items()})
-    pd.DataFrame(metrics).to_csv('morphomnist_cf_oracle_metrics.csv')
+        print({k: len(v) for k, v in metrics.items()})
+        pd.DataFrame(metrics).to_csv('morphomnist_cf_oracle_metrics.csv')
