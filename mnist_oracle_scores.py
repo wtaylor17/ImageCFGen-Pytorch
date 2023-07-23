@@ -139,41 +139,43 @@ if __name__ == '__main__':
         'bigan_agnostic_lvs': [],
         'vae_agnostic_lvs': []
     }
-    with torch.no_grad():
-        for i in tqdm(range(n), total=n):
-            x = x_test[i:i + 1]
-            a_args = {
-                k: v[i:i + 1]
-                for k, v in a_test_scaled.items()
-            }
-            digit = oc[i].cpu().item()
-            metrics['digit'].append(digit)
-            thickness = a_test['thickness'][i].cpu().item()
-            intensity = a_test['intensity'][i].cpu().item()
-            slant = a_test['slant'][i].cpu().item()
-            metrics['thickness'].append(thickness)
-            metrics['intensity'].append(intensity)
-            metrics['slant'].append(slant)
+    for i in tqdm(range(n), total=n):
+        x = x_test[i:i + 1]
+        a_args = {
+            k: v[i:i + 1]
+            for k, v in a_test_scaled.items()
+        }
+        digit = oc[i].cpu().item()
+        metrics['digit'].append(digit)
+        thickness = a_test['thickness'][i].cpu().item()
+        intensity = a_test['intensity'][i].cpu().item()
+        slant = a_test['slant'][i].cpu().item()
+        metrics['thickness'].append(thickness)
+        metrics['intensity'].append(intensity)
+        metrics['slant'].append(slant)
 
-            contrastive = contrastive_explainer.explain(Image(x.cpu().numpy().reshape((1, 28, 28, 1)),
-                                                              batched=True)) \
-                .explanations[0]['pn'].reshape((1, 1, 28, 28))
-            counterfactual = cf_explainer.explain(Image(x.cpu().numpy().reshape((1, 28, 28, 1)),
-                                                        batched=True)) \
-                .explanations[0]['cf'].reshape((1, 1, 28, 28))
+        contrastive = contrastive_explainer.explain(Image(x.cpu().numpy().reshape((1, 28, 28, 1)),
+                                                          batched=True)) \
+            .explanations[0]['pn'].reshape((1, 1, 28, 28))
+        counterfactual = cf_explainer.explain(Image(x.cpu().numpy().reshape((1, 28, 28, 1)),
+                                                    batched=True)) \
+            .explanations[0]['cf'].reshape((1, 1, 28, 28))
+        with torch.no_grad():
             cf_label = clf(torch.from_numpy(counterfactual).float().to(device)).argmax(1).item()
-            bigan_cf = bigan_explainer.explain(x, a_args, steps=args.steps,
-                                               target_class=cf_label,
-                                               train_z=args.train_codes,
-                                               lr=args.lr).reshape((1, 1, 28, 28))
-            bigan_agnostic_cf = bigan_agnostic.explain(x, a_args, cf_label)[0][0].reshape((1, 1, 28, 28))
-            vae_agnostic_cf = vae_agnostic.explain(x, a_args, cf_label)[0][0].reshape((1, 1, 28, 28))
-
-            vae_cf = vae_explainer.explain(x, a_args, steps=args.steps,
+        bigan_cf = bigan_explainer.explain(x, a_args, steps=args.steps,
                                            target_class=cf_label,
                                            train_z=args.train_codes,
                                            lr=args.lr).reshape((1, 1, 28, 28))
+        with torch.no_grad():
+            bigan_agnostic_cf = bigan_agnostic.explain(x, a_args, cf_label)[0][0].reshape((1, 1, 28, 28))
+            vae_agnostic_cf = vae_agnostic.explain(x, a_args, cf_label)[0][0].reshape((1, 1, 28, 28))
 
+        vae_cf = vae_explainer.explain(x, a_args, steps=args.steps,
+                                       target_class=cf_label,
+                                       train_z=args.train_codes,
+                                       lr=args.lr).reshape((1, 1, 28, 28))
+
+        with torch.no_grad():
             oracle_dist = oracle(x)
             cf_label = clf(torch.from_numpy(counterfactual).float().to(device)).argmax(1).item()
             oracle_cf_label = oracle(torch.from_numpy(counterfactual).float().to(device)).argmax(1).item()
@@ -212,5 +214,5 @@ if __name__ == '__main__':
             metrics['vae_agnostic_lvs'].append(js_div(oracle_dist,
                                                       oracle(vae_agnostic_cf.float().to(device))))
 
-        print({k: len(v) for k, v in metrics.items()})
-        pd.DataFrame(metrics).to_csv('morphomnist_cf_oracle_metrics.csv')
+    print({k: len(v) for k, v in metrics.items()})
+    pd.DataFrame(metrics).to_csv('morphomnist_cf_oracle_metrics.csv')
