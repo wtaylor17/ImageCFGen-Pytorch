@@ -18,7 +18,7 @@ if __name__ == "__main__":
     E_ft.load_state_dict(bigan_finetuned["E_state_dict"])
     G_ft.load_state_dict(bigan_finetuned["G_state_dict"])
     vae = torch.load('audiomnist-vae.tar', map_location=device)['vae']
-    subject_clf = torch.load('AudioMNIST-subject-clf.tar', map_location=device)['clf']
+    subject_clf = torch.load('AudioMNIST-subject-clf.tar', map_location=device)['model']
 
     print("loading data...")
     data = AudioMNISTData('AudioMNIST-data.zip', device=device)
