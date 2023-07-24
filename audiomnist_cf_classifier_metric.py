@@ -90,11 +90,11 @@ if __name__ == "__main__":
                 bigan_int = G(torch.randn_like(bigan_codes), cf_a)
                 vae_int = vae.decoder(torch.randn_like(vae_codes), cf_a)
 
-                bigan_mat[subject, d] = (subject_clf(bigan_cf).argmax(1) == d).int().cpu().numpy()
-                bigan_ft_mat[subject, d] = (subject_clf(bigan_ft_cf).argmax(1) == d).int().cpu().numpy()
-                vae_mat[subject, d] = (subject_clf(vae_cf).argmax(1) == d).int().cpu().numpy()
-                bigan_int_mat[subject, d] = (subject_clf(bigan_int).argmax(1) == d).int().cpu().numpy()
-                vae_int_mat[subject, d] = (subject_clf(vae_int).argmax(1) == d).int().cpu().numpy()
+                bigan_mat[subject - 1, d] = (subject_clf(bigan_cf).argmax(1) == subject - 1).int().cpu().numpy()
+                bigan_ft_mat[subject - 1, d] = (subject_clf(bigan_ft_cf).argmax(1) == subject - 1).int().cpu().numpy()
+                vae_mat[subject - 1, d] = (subject_clf(vae_cf).argmax(1) == subject - 1).int().cpu().numpy()
+                bigan_int_mat[subject - 1, d] = (subject_clf(bigan_int).argmax(1) == subject - 1).int().cpu().numpy()
+                vae_int_mat[subject - 1, d] = (subject_clf(vae_int).argmax(1) == subject - 1).int().cpu().numpy()
 
     np.save('bigan_cf_agreement_mat.npy', bigan_mat)
     np.save('bigan_ft_cf_agreement_mat.npy', bigan_ft_mat)
