@@ -246,7 +246,10 @@ def train(zip_path: str,
 
     print("loading data...")
     data = AudioMNISTData(zip_path, device=device)
-    model = AudioMNISTClassifier(ATTRIBUTE_DIMS[attribute]).to(device)
+    if attribute == "subject":
+        model = AudioMNISTClassifier(60).to(device)
+    else:
+        model = AudioMNISTClassifier(ATTRIBUTE_DIMS[attribute]).to(device)
     criterion = nn.CrossEntropyLoss()
     opt = torch.optim.Adam(model.parameters(), lr=1e-4)
 
