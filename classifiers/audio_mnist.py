@@ -15,7 +15,7 @@ from zipfile import ZipFile
 import json
 
 np.random.seed(42)
-VALIDATION_RUNS = np.random.randint(0, 50, size=(10,)).tolist()
+VALIDATION_RUNS = [38, 7, 42, 10, 14, 18, 20, 22, 28]
 
 
 class AudioMNISTClassifier(nn.Sequential):
@@ -274,6 +274,8 @@ def train(zip_path: str,
         tq = tqdm(data.stream(batch_size=batch_size,
                               excluded_runs=VALIDATION_RUNS), total=n_batches)
         for batch in tq:
+            if attribute == "subject":
+                batch[attribute] = torch.eye(60)[batch[attribute] - 1].to(device)
             opt.zero_grad()
             pred = model(spect_to_img(batch["audio"].reshape((-1, 1, 128, 128))))
             loss = criterion(pred, batch[attribute])
@@ -289,6 +291,8 @@ def train(zip_path: str,
         with torch.no_grad():
             for batch in data.stream(batch_size=batch_size,
                                      excluded_runs=list(set(range(50)) - set(VALIDATION_RUNS))):
+                if attribute == "subject":
+                    batch[attribute] = torch.eye(60)[batch[attribute] - 1].to(device)
                 pred = model(spect_to_img(batch["audio"].reshape((-1, 1, 128, 128))))
                 pred = pred.argmax(dim=1)
                 y = batch[attribute].argmax(dim=1)
