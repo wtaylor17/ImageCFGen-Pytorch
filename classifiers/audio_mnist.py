@@ -285,7 +285,7 @@ def train(zip_path: str,
         for batch in tq:
             if attribute == "subject":
                 batch[attribute] = torch.from_numpy(batch[attribute]).to(device)
-                mask = torch.isin(batch[attribute] - 1, subjects_to_keep)
+                mask = torch.isin(batch[attribute] - 1, subjects_to_keep.to(device))
                 batch = {k: v[mask] for k, v in batch.items()}
                 batch[attribute] = torch.eye(len(subjects_to_keep))[batch[attribute].flatten() - 1].to(device)\
                     .reshape((-1, len(subjects_to_keep)))
