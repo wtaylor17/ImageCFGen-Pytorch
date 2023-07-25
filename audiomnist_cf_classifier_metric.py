@@ -97,14 +97,14 @@ if __name__ == "__main__":
                 bigan_int = G(torch.randn_like(bigan_codes), cf_a)
                 vae_int = vae.decoder(torch.randn_like(vae_codes), cf_a)
 
-                bigan_mat[subject - 1, d] = (
+                bigan_mat[subject_inds[subject], d] = (
                             subject_clf(bigan_cf).argmax(1) == subject_inds[subject]).int().cpu().numpy()
-                bigan_ft_mat[subject - 1, d] = (
+                bigan_ft_mat[subject_inds[subject], d] = (
                             subject_clf(bigan_ft_cf).argmax(1) == subject_inds[subject]).int().cpu().numpy()
-                vae_mat[subject - 1, d] = (subject_clf(vae_cf).argmax(1) == subject_inds[subject]).int().cpu().numpy()
-                bigan_int_mat[subject - 1, d] = (
+                vae_mat[subject_inds[subject], d] = (subject_clf(vae_cf).argmax(1) == subject_inds[subject]).int().cpu().numpy()
+                bigan_int_mat[subject_inds[subject], d] = (
                             subject_clf(bigan_int).argmax(1) == subject_inds[subject]).int().cpu().numpy()
-                vae_int_mat[subject - 1, d] = (
+                vae_int_mat[subject_inds[subject], d] = (
                             subject_clf(vae_int).argmax(1) == subject_inds[subject]).int().cpu().numpy()
 
     np.save('bigan_cf_agreement_mat.npy', bigan_mat)
