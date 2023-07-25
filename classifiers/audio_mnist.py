@@ -286,8 +286,8 @@ def train(zip_path: str,
             if attribute == "subject":
                 batch[attribute] = torch.from_numpy(batch[attribute]).to(device)
                 mask = torch.isin(batch[attribute] - 1, subjects_to_keep.to(device)).flatten()
-                batch = {k: v[mask] for k, v in batch.items()}
-                batch[attribute] = torch.eye(len(subjects_to_keep))[batch[attribute].flatten() - 1].to(device)\
+                batch = {k: v.cpu()[mask.cpu()].to(device) for k, v in batch.items() if k in ['audio', attribute]}
+                batch[attribute] = torch.eye(len(subjects_to_keep))[batch[attribute].flatten() - 1].to(device) \
                     .reshape((-1, len(subjects_to_keep)))
 
             opt.zero_grad()
@@ -308,7 +308,7 @@ def train(zip_path: str,
                 if attribute == "subject":
                     batch[attribute] = torch.from_numpy(batch[attribute]).to(device)
                     mask = torch.isin(batch[attribute] - 1, subjects_to_keep.to(device)).flatten()
-                    batch = {k: v[mask] for k, v in batch.items() if k in ['audio', attribute]}
+                    batch = {k: v.cpu()[mask.cpu()].to(device) for k, v in batch.items() if k in ['audio', attribute]}
                     batch[attribute] = torch.eye(len(subjects_to_keep))[batch[attribute].flatten() - 1].to(device) \
                         .reshape((-1, len(subjects_to_keep)))
                 pred = model(spect_to_img(batch["audio"].reshape((-1, 1, 128, 128))))
