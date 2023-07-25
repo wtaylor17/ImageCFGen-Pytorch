@@ -238,6 +238,12 @@ def evaluate(zip_path: str,
     return n_correct / n_total
 
 
+# for subject classifier only
+subjects_to_keep = torch.Tensor([0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 15, 16, 19, 20,
+                                 21, 22, 23, 25, 26, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39,
+                                 42, 43, 44, 45, 47, 48, 49, 50, 52, 53, 54, 55, 56, 57, 58])
+
+
 def train(zip_path: str,
           epochs: int = 100,
           batch_size: int = 100,
@@ -247,7 +253,7 @@ def train(zip_path: str,
     print("loading data...")
     data = AudioMNISTData(zip_path, device=device)
     if attribute == "subject":
-        model = AudioMNISTClassifier(60).to(device)
+        model = AudioMNISTClassifier(len(subjects_to_keep)).to(device)
     else:
         model = AudioMNISTClassifier(ATTRIBUTE_DIMS[attribute]).to(device)
     criterion = nn.CrossEntropyLoss()
@@ -278,7 +284,11 @@ def train(zip_path: str,
                               excluded_runs=VALIDATION_RUNS), total=n_batches)
         for batch in tq:
             if attribute == "subject":
-                batch[attribute] = torch.eye(60)[batch[attribute].flatten() - 1].to(device).reshape((-1, 60))
+                mask = torch.isin(batch[attribute] - 1, subjects_to_keep)
+                batch = {k: v[mask] for k, v in batch.items()}
+                batch[attribute] = torch.eye(len(subjects_to_keep))[batch[attribute].flatten() - 1].to(device)\
+                    .reshape((-1, len(subjects_to_keep)))
+
             opt.zero_grad()
             pred = model(spect_to_img(batch["audio"].reshape((-1, 1, 128, 128))))
             loss = criterion(pred, batch[attribute])
@@ -295,7 +305,10 @@ def train(zip_path: str,
             for batch in data.stream(batch_size=batch_size,
                                      excluded_runs=list(set(range(50)) - set(VALIDATION_RUNS))):
                 if attribute == "subject":
-                    batch[attribute] = torch.eye(60)[batch[attribute].flatten() - 1].to(device).reshape((-1, 60))
+                    mask = torch.isin(batch[attribute] - 1, subjects_to_keep)
+                    batch = {k: v[mask] for k, v in batch.items()}
+                    batch[attribute] = torch.eye(len(subjects_to_keep))[batch[attribute].flatten() - 1].to(device) \
+                        .reshape((-1, len(subjects_to_keep)))
                 pred = model(spect_to_img(batch["audio"].reshape((-1, 1, 128, 128))))
                 pred = pred.argmax(dim=1)
                 y = batch[attribute].argmax(dim=1)
