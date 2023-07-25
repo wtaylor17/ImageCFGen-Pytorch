@@ -284,6 +284,7 @@ def train(zip_path: str,
                               excluded_runs=VALIDATION_RUNS), total=n_batches)
         for batch in tq:
             if attribute == "subject":
+                batch[attribute] = torch.from_numpy(batch[attribute]).to(device)
                 mask = torch.isin(batch[attribute] - 1, subjects_to_keep)
                 batch = {k: v[mask] for k, v in batch.items()}
                 batch[attribute] = torch.eye(len(subjects_to_keep))[batch[attribute].flatten() - 1].to(device)\
@@ -305,8 +306,9 @@ def train(zip_path: str,
             for batch in data.stream(batch_size=batch_size,
                                      excluded_runs=list(set(range(50)) - set(VALIDATION_RUNS))):
                 if attribute == "subject":
+                    batch[attribute] = torch.from_numpy(batch[attribute]).to(device)
                     mask = torch.isin(batch[attribute] - 1, subjects_to_keep)
-                    batch = {k: v[mask] for k, v in batch.items()}
+                    batch = {k: v[mask] for k, v in batch.items() if k in ['audio', attribute]}
                     batch[attribute] = torch.eye(len(subjects_to_keep))[batch[attribute].flatten() - 1].to(device) \
                         .reshape((-1, len(subjects_to_keep)))
                 pred = model(spect_to_img(batch["audio"].reshape((-1, 1, 128, 128))))
