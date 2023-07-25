@@ -242,6 +242,9 @@ def evaluate(zip_path: str,
 subjects_to_keep = torch.Tensor([0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 15, 16, 19, 20,
                                  21, 22, 23, 25, 26, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39,
                                  42, 43, 44, 45, 47, 48, 49, 50, 52, 53, 54, 55, 56, 57, 58])
+subject_inds = torch.Tensor([0, 1, 2, 3, 4, 5, 6, 7, 0, 8, 9, 10, 11, 12, 0, 13, 14, 0, 0, 15, 16, 17,
+                             18, 19, 0, 20, 21, 22, 23, 24, 25, 0, 26, 27, 28, 29, 30, 31, 32, 33, 0, 0,
+                             34, 35, 36, 37, 0, 38, 39, 40, 41, 0, 42, 43, 44, 45, 46, 47, 48, 0])
 
 
 def train(zip_path: str,
@@ -287,7 +290,7 @@ def train(zip_path: str,
                 batch[attribute] = torch.from_numpy(batch[attribute]).to(device)
                 mask = torch.isin(batch[attribute] - 1, subjects_to_keep.to(device)).flatten()
                 batch = {k: v.cpu()[mask.cpu()].to(device) for k, v in batch.items() if k in ['audio', attribute]}
-                batch[attribute] = torch.eye(len(subjects_to_keep))[batch[attribute].cpu().flatten() - 1] \
+                batch[attribute] = torch.eye(len(subjects_to_keep))[subject_inds[batch[attribute].cpu().flatten()] - 1] \
                     .to(device) \
                     .reshape((-1, len(subjects_to_keep)))
 
@@ -310,7 +313,8 @@ def train(zip_path: str,
                     batch[attribute] = torch.from_numpy(batch[attribute]).to(device)
                     mask = torch.isin(batch[attribute] - 1, subjects_to_keep.to(device)).flatten()
                     batch = {k: v.cpu()[mask.cpu()].to(device) for k, v in batch.items() if k in ['audio', attribute]}
-                    batch[attribute] = torch.eye(len(subjects_to_keep))[batch[attribute].cpu().flatten() - 1]\
+                    batch[attribute] = torch.eye(len(subjects_to_keep))[
+                        subject_inds[batch[attribute].cpu().flatten()] - 1] \
                         .to(device) \
                         .reshape((-1, len(subjects_to_keep)))
                 pred = model(spect_to_img(batch["audio"].reshape((-1, 1, 128, 128))))
