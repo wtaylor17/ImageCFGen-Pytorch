@@ -56,7 +56,7 @@ if __name__ == '__main__':
         n_batches = 0
 
         for batch in tqdm(data.stream(batch_size=64)):
-            x = spect_to_img(batch["audio"]).to(device)
+            x = spect_to_img(batch["audio"].to(device)).to(device)
             batch["call_type"] = batch["call_type"].to(device)
 
             opt.zero_grad()
