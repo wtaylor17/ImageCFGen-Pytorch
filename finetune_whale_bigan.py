@@ -12,7 +12,7 @@ parser.add_argument('--steps', type=int, default=20)
 if __name__ == '__main__':
     args = parser.parse_args()
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    mc_rounds = 4
+    batch_size = 32
     print('loading data')
     data = whalecalls.WhaleCallData("WhaleData/Nocall", "WhaleData/Gunshot", "WhaleData/Upcall")
     print('done')
@@ -44,7 +44,7 @@ if __name__ == '__main__':
         def img_to_spect(img_):
             return img_ * stds_kept * (spect_std + 1e-6) + spect_mean
         n_batches = 0
-        for batch in data.stream(batch_size=64):
+        for batch in data.stream(batch_size=batch_size):
             n_batches += 1
 
     E.train()
@@ -55,7 +55,7 @@ if __name__ == '__main__':
         R, L = 0, 0
         n_batches = 0
 
-        for batch in tqdm(data.stream(batch_size=64)):
+        for batch in tqdm(data.stream(batch_size=batch_size)):
             x = spect_to_img(batch["audio"].to(device)).to(device)
             batch["call_type"] = batch["call_type"].to(device)
 
