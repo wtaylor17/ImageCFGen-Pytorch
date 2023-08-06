@@ -121,9 +121,9 @@ if __name__ == '__main__':
             k: v[i:i+1]
             for k, v in a_test_scaled.items()
         })
-        vae_shap_values = np.array(vae_explainer.shap_values(a_expl)).reshape((10, 13))[:, :, [10, 11, 12]]
+        vae_shap_values = np.array(vae_explainer.shap_values(a_expl)).reshape((10, 13))[:, [10, 11, 12]]
         vae_shap[i] = vae_shap_values
-        bigan_shap_values = np.array(bigan_explainer.shap_values(a_expl)).reshape((10, 13))[:, :, [10, 11, 12]]
+        bigan_shap_values = np.array(bigan_explainer.shap_values(a_expl)).reshape((10, 13))[:, [10, 11, 12]]
         bigan_shap[i] = bigan_shap_values
 
     np.save('vae_attribute_shap.npy', vae_shap)
