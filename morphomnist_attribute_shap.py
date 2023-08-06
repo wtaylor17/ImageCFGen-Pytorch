@@ -66,7 +66,7 @@ if __name__ == '__main__':
     clf = torch.load('mnist_clf.tar', map_location=device)['clf']
 
 
-    class ShapClf(torch.nn.Module):
+    class VaeShapClf(torch.nn.Module):
         def forward(self, a):
             if isinstance(a, np.ndarray):
                 a = torch.from_numpy(a)
@@ -78,6 +78,20 @@ if __name__ == '__main__':
             }
             z = torch.randn((a["digit"].size(0), 512, 1, 1)).to(device)
             img = vae.decoder(z, a)
+            return clf(img).softmax(1).reshape((-1, n_samples, 10)).mean(dim=1)
+
+    class BiganShapClf(torch.nn.Module):
+        def forward(self, a):
+            if isinstance(a, np.ndarray):
+                a = torch.from_numpy(a)
+            a = {
+                "digit": a[:, :, :10].float().repeat(n_samples, 1, 1).reshape((-1, 10)),
+                "thickness": a[:, :, 10:11].float().repeat(n_samples, 1, 1).reshape((-1, 1)),
+                "intensity": a[:, :, 11:12].float().repeat(n_samples, 1, 1).reshape((-1, 1)),
+                "slant": a[:, :, 12:13].float().repeat(n_samples, 1, 1).reshape((-1, 1))
+            }
+            z = torch.randn((a["digit"].size(0), 512, 1, 1)).to(device)
+            img = G(z, a)
             return clf(img).softmax(1).reshape((-1, n_samples, 10)).mean(dim=1)
 
     def cat_at(a):
@@ -95,26 +109,22 @@ if __name__ == '__main__':
         for k in a_train
     }
 
-    f = ShapClf().to(device)
-
     n = len(a_test_scaled["digit"])
-    e = shap.GradientExplainer(f, cat_at(background_a))
+    vae_explainer = shap.GradientExplainer(VaeShapClf(), cat_at(background_a))
+    bigan_explainer = shap.GradientExplainer(BiganShapClf(), cat_at(background_a))
+
+    vae_shap = np.zeros((n, 3))
+    bigan_shap = np.zeros((n, 3))
 
     for i in tqdm(range(n), total=n):
         a_expl = cat_at({
             k: v[i:i+1]
             for k, v in a_test_scaled.items()
         })
-        shap_values = np.array(e.shap_values(a_expl))
-        """print(shap_values.shape)
-        shap_values = np.mean(np.abs(shap_values), axis=0).reshape((-1,))
-        feature_names = ['thickness', 'intensity', 'slant']
-        fig, axs = plt.subplots(1, 2)
-        axs[0].imshow(x_test[inds[0:1]].reshape((28, 28)), vmin=0, vmax=255)
-        axs[0].set_xticks([])
-        axs[0].set_yticks([])
-        axs[0].set_title('Original Image')
-        axs[1].bar(feature_names, [shap_values[10], shap_values[11], shap_values[12]])
-        axs[1].set_ylabel('|SHAP|')
-        axs[1].set_title('Shapely local attribute explanation')
-        plt.show()"""
+        vae_shap_values = np.array(vae_explainer.shap_values(a_expl)).reshape((13,))[:, [10, 11, 12]]
+        vae_shap[i] = vae_shap_values
+        bigan_shap_values = np.array(bigan_explainer.shap_values(a_expl)).reshape((13,))[:, [10, 11, 12]]
+        bigan_shap[i] = bigan_shap_values
+
+    np.save('vae_attribute_shap.npy', vae_shap)
+    np.save('bigan_attribute_shape.npy', bigan_shap)
