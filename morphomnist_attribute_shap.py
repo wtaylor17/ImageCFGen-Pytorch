@@ -127,4 +127,4 @@ if __name__ == '__main__':
         bigan_shap[i] = bigan_shap_values
 
     np.save('vae_attribute_shap.npy', vae_shap)
-    np.save('bigan_attribute_shape.npy', bigan_shap)
+    np.save('bigan_attribute_shap.npy', bigan_shap)
