@@ -76,7 +76,7 @@ if __name__ == '__main__':
                 "intensity": a[:, :, 11:12].float().repeat(n_samples, 1, 1).reshape((-1, 1)),
                 "slant": a[:, :, 12:13].float().repeat(n_samples, 1, 1).reshape((-1, 1))
             }
-            z = torch.randn((a["digit"].size(0), 512, 1, 1))
+            z = torch.randn((a["digit"].size(0), 512, 1, 1)).to(device)
             img = vae.decoder(z, a)
             return clf(img).softmax(1).reshape((-1, n_samples, 10)).mean(dim=1)
 
