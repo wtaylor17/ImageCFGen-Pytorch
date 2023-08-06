@@ -113,17 +113,17 @@ if __name__ == '__main__':
     vae_explainer = shap.GradientExplainer(VaeShapClf(), cat_at(background_a))
     bigan_explainer = shap.GradientExplainer(BiganShapClf(), cat_at(background_a))
 
-    vae_shap = np.zeros((n, 3))
-    bigan_shap = np.zeros((n, 3))
+    vae_shap = np.zeros((n, 10, 3))
+    bigan_shap = np.zeros((n, 10, 3))
 
     for i in tqdm(range(n), total=n):
         a_expl = cat_at({
             k: v[i:i+1]
             for k, v in a_test_scaled.items()
         })
-        vae_shap_values = np.array(vae_explainer.shap_values(a_expl)).reshape((13,))[:, [10, 11, 12]]
+        vae_shap_values = np.array(vae_explainer.shap_values(a_expl)).reshape((10, 13))[:, :, [10, 11, 12]]
         vae_shap[i] = vae_shap_values
-        bigan_shap_values = np.array(bigan_explainer.shap_values(a_expl)).reshape((13,))[:, [10, 11, 12]]
+        bigan_shap_values = np.array(bigan_explainer.shap_values(a_expl)).reshape((10, 13))[:, :, [10, 11, 12]]
         bigan_shap[i] = bigan_shap_values
 
     np.save('vae_attribute_shap.npy', vae_shap)
