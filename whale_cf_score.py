@@ -10,9 +10,9 @@ if __name__ == '__main__':
     print('loading data')
     data = whalecalls.WhaleCallData("WhaleData/Nocall", "WhaleData/Gunshot", "WhaleData/Upcall")
     print('done')
-    bigan_dict = torch.load('whale_bigan.tar', map_location=device)
+    bigan_dict = torch.load('whale_bigan1.tar', map_location=device)
     E, G = bigan_dict['E'], bigan_dict['G']
-    bigan_ft_dict = torch.load('whale_bigan_finetuned.tar', map_location=device)
+    bigan_ft_dict = torch.load('whale_bigan_finetuned1.tar', map_location=device)
     E_ft, G_ft = bigan_ft_dict['E'], bigan_ft_dict['G']
     vae = torch.load('whale_vae1.tar', map_location=device)['vae']
     clf = torch.load('whalecall_clf.tar', map_location=device)['clf']
@@ -50,7 +50,9 @@ if __name__ == '__main__':
             bigan_gen = 0
             vae_gen = 0
             bigan_ft_gen = 0
-            img = spect_to_img(batch["audio"])
+            img = spect_to_img(batch["audio"].to(device))
+            batch["call_type"] = batch["call_type"].to(device)
+
             bigan_z = E(img, batch)
             bigan_ft_z = E_ft(img, batch)
             vae_z = vae.encoder(img, batch)[0]
@@ -60,7 +62,7 @@ if __name__ == '__main__':
             while (batch["call_type"].argmax(1) == original_call_type).sum() > 0:
                 overlap = batch["call_type"].argmax(1) == original_call_type
                 needed = overlap.sum()
-                batch["call_type"][overlap] = torch.eye(3)[choices(training_call_types, k=needed)]
+                batch["call_type"][overlap] = torch.eye(3)[choices(training_call_types, k=needed)].to(device)
 
             bigan_gen = G(bigan_z, batch)
             bigan_ft_gen = G_ft(bigan_ft_z, batch)
