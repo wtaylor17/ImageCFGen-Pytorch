@@ -44,9 +44,9 @@ if __name__ == '__main__':
         for batch in tqdm(data.stream(mode='validation'), total=n_batches):
             bigan_gen = 0
             vae_gen = 0
-
+            batch["call_type"] = batch["call_type"].to(device)
             for _ in range(mc_rounds):
-                z = torch.randn((len(batch["call_type"]), 512, 1, 1))
+                z = torch.randn((len(batch["call_type"]), 512, 1, 1)).to(device)
                 bigan_gen = bigan_gen + G(z, batch)
                 vae_gen = vae_gen + vae.decoder(z, batch)
 
