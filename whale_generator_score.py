@@ -52,7 +52,6 @@ if __name__ == '__main__':
 
             bigan_gen = bigan_gen / mc_rounds
             vae_gen = vae_gen / mc_rounds
-            bigan_ft_gen = bigan_ft_gen / mc_rounds
             tgt = batch["call_type"].argmax(1)
 
             n_bigan_correct += (clf(bigan_gen).argmax(1) == tgt).sum()
