@@ -9,7 +9,7 @@ if __name__ == '__main__':
     print('loading data')
     data = whalecalls.WhaleCallData("WhaleData/Nocall", "WhaleData/Gunshot", "WhaleData/Upcall")
     print('done')
-    bigan_dict = torch.load('whale_bigan.tar', map_location=device)
+    bigan_dict = torch.load('whale_bigan1.tar', map_location=device)
     E, G = bigan_dict['E'], bigan_dict['G']
     vae = torch.load('whale_vae1.tar', map_location=device)['vae']
     clf = torch.load('whalecall_clf.tar', map_location=device)['clf']
