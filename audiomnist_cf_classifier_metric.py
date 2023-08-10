@@ -101,8 +101,8 @@ if __name__ == "__main__":
                 vae_int_mat[subject-1, d] = (
                             subject_clf(vae_int).argmax(1) == subject).int().cpu().numpy()
 
-    np.save('bigan_cf_agreement_mat.npy', bigan_mat)
-    np.save('bigan_ft_cf_agreement_mat.npy', bigan_ft_mat)
-    np.save('vae_cf_agreement_mat.npy', vae_mat)
-    np.save('vae_int_agreement_mat.npy', vae_int_mat)
-    np.save('bigan_int_agreement_mat.npy', bigan_int_mat)
+    print('BiGAN:', bigan_mat.mean())
+    print('BiGAN (ft):', bigan_ft_mat.mean())
+    print('VAE:', vae_mat.mean())
+    print('VAE (int):', vae_int_mat.mean())
+    print('BiGAN (int):', bigan_int_mat.mean())
