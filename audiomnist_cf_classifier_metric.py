@@ -95,7 +95,7 @@ if __name__ == "__main__":
                             subject_clf(bigan_cf).argmax(1) == subject).int().cpu().numpy()
                 bigan_ft_mat[subject, d] = (
                             subject_clf(bigan_ft_cf).argmax(1) == subject).int().cpu().numpy()
-                vae_mat[subject, d] = (subject_clf(vae_cf).argmax(1) == subject-1).int().cpu().numpy()
+                vae_mat[subject, d] = (subject_clf(vae_cf).argmax(1) == subject).int().cpu().numpy()
                 bigan_int_mat[subject, d] = (
                             subject_clf(bigan_int).argmax(1) == subject).int().cpu().numpy()
                 vae_int_mat[subject, d] = (
