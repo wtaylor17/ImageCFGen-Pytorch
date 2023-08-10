@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     print('Computing spectrogram statistics...')
     for batch in data.stream(batch_size=128,
-                             excluded_runs=list(set(range(50)) - set(VALIDATION_RUNS))):
+                             excluded_runs=set(VALIDATION_RUNS)):
         n_batches += 1
         spect_mean = spect_mean + batch["audio"].mean(dim=(0, 1)).reshape((1, 1, -1))
         spect_ss = spect_ss + batch["audio"].square().mean(dim=(0, 1)).reshape((1, 1, -1))
