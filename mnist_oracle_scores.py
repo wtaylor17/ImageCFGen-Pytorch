@@ -79,7 +79,7 @@ if __name__ == '__main__':
     G = model_dict['G']
     vae = torch.load('mnist-vae.tar', map_location=device)['vae']
     clf = torch.load('mnist_clf.tar', map_location=device)['clf']
-    oracles = [torch.load(f'oracles/oracle_{i}.tar', map_location=device)['clf']
+    oracles = [torch.load(f'oracles/oracle-{i}.tar', map_location=device)['clf']
                for i in range(10)]
 
     from omnixai.explainers.vision import ContrastiveExplainer, CounterfactualExplainer
