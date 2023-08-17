@@ -79,7 +79,8 @@ if __name__ == '__main__':
     G = model_dict['G']
     vae = torch.load('mnist-vae.tar', map_location=device)['vae']
     clf = torch.load('mnist_clf.tar', map_location=device)['clf']
-    oracle = torch.load('mnist_oracle.tar', map_location=device)['clf']
+    oracles = [torch.load(f'oracles/oracle_{i}.tar', map_location=device)['clf']
+               for i in range(10)]
 
     from omnixai.explainers.vision import ContrastiveExplainer, CounterfactualExplainer
     from omnixai.data.image import Image
@@ -178,43 +179,59 @@ if __name__ == '__main__':
                                        lr=args.lr).reshape((1, 1, 28, 28))
 
         with torch.no_grad():
-            oracle_dist = oracle(x)
+            oracle_dists = [oracle(x) for oracle in oracles]
             cf_label = clf(torch.from_numpy(counterfactual).float().to(device)).argmax(1).item()
-            oracle_cf_label = oracle(torch.from_numpy(counterfactual).float().to(device)).argmax(1).item()
+            oracle_cf_labels = [oracle(torch.from_numpy(counterfactual).float().to(device)).argmax(1).item()
+                                for oracle in oracles]
             metrics['cf_label'].append(cf_label)
-            metrics['cf_os'].append(int(cf_label == oracle_cf_label))
-            metrics['cf_lvs'].append(js_div(oracle_dist,
-                                            oracle(torch.from_numpy(counterfactual).float().to(device))).cpu().item())
+            for j in range(10):
+                metrics[f'cf_os_{j}'].append(int(cf_label == oracle_cf_labels[j]))
+                metrics[f'cf_lvs_{j}'].append(js_div(oracle_dists[j],
+                                                     oracles[j](torch.from_numpy(counterfactual).float().to(
+                                                         device))).cpu().item())
             pn_label = clf(torch.from_numpy(contrastive).float().to(device)).argmax(1).item()
-            oracle_pn_label = oracle(torch.from_numpy(contrastive).float().to(device)).argmax(1).item()
+            oracle_pn_labels = [oracle(torch.from_numpy(contrastive).float().to(device)).argmax(1).item()
+                                for oracle in oracles]
             metrics['pn_label'].append(pn_label)
-            metrics['pn_os'].append(int(pn_label == oracle_pn_label))
-            metrics['pn_lvs'].append(js_div(oracle_dist,
-                                            oracle(torch.from_numpy(contrastive).float().to(device))).cpu().item())
+            for j in range(10):
+                metrics[f'pn_os_{j}'].append(int(pn_label == oracle_pn_labels[j]))
+                metrics[f'pn_lvs_{j}'].append(js_div(oracle_dists[j],
+                                                     oracles[j](torch.from_numpy(contrastive).float().to(
+                                                         device))).cpu().item())
             bigan_label = clf(bigan_cf.float().to(device)).argmax(1).item()
-            oracle_bigan_label = oracle(bigan_cf.float().to(device)).argmax(1).item()
+            oracle_bigan_labels = [oracle(bigan_cf.float().to(device)).argmax(1).item()
+                                   for oracle in oracles]
             metrics['bigan_label'].append(bigan_label)
-            metrics['bigan_os'].append(int(bigan_label == oracle_bigan_label))
-            metrics['bigan_lvs'].append(js_div(oracle_dist,
-                                               oracle(bigan_cf)).cpu().item())
+            for j in range(10):
+                metrics[f'bigan_os_{j}'].append(int(bigan_label == oracle_bigan_labels[j]))
+                metrics[f'bigan_lvs_{j}'].append(js_div(oracle_dists[j],
+                                                        oracles[j](bigan_cf)).cpu().item())
             bigan_agnostic_label = clf(bigan_agnostic_cf.float().to(device)).argmax(1).item()
-            oracle_bigan_agnostic_label = oracle(bigan_agnostic_cf.float().to(device)).argmax(1).item()
+            oracle_bigan_agnostic_labels = [oracle(bigan_agnostic_cf.float().to(device)).argmax(1).item()
+                                            for oracle in oracles]
             metrics['bigan_agnostic_label'].append(bigan_agnostic_label)
-            metrics['bigan_agnostic_os'].append(int(bigan_agnostic_label == oracle_bigan_agnostic_label))
-            metrics['bigan_agnostic_lvs'].append(js_div(oracle_dist,
-                                                        oracle(bigan_agnostic_cf.float().to(device))).cpu().item())
+            for j in range(10):
+                metrics[f'bigan_agnostic_os_{j}'].append(int(bigan_agnostic_label == oracle_bigan_agnostic_labels[j]))
+                metrics[f'bigan_agnostic_lvs_{j}'].append(js_div(oracle_dists[j],
+                                                                 oracles[j](bigan_agnostic_cf.float().to(
+                                                                     device))).cpu().item())
             vae_label = clf(vae_cf.float().to(device)).argmax(1).item()
-            oracle_vae_label = oracle(vae_cf.float().to(device)).argmax(1).item()
+            oracle_vae_labels = [oracle(vae_cf.float().to(device)).argmax(1).item()
+                                 for oracle in oracles]
             metrics['vae_label'].append(vae_label)
-            metrics['vae_os'].append(int(vae_label == oracle_vae_label))
-            metrics['vae_lvs'].append(js_div(oracle_dist,
-                                             oracle(vae_cf.float().to(device))).cpu().item())
+            for j in range(10):
+                metrics[f'vae_os_{j}'].append(int(vae_label == oracle_vae_labels[j]))
+                metrics[f'vae_lvs_{j}'].append(js_div(oracle_dists[j],
+                                                      oracles[j](vae_cf.float().to(device))).cpu().item())
             vae_agnostic_label = clf(vae_agnostic_cf.float().to(device)).argmax(1).item()
-            oracle_vae_agnostic_label = oracle(vae_agnostic_cf.float().to(device)).argmax(1).item()
+            oracle_vae_agnostic_labels = [oracle(vae_agnostic_cf.float().to(device)).argmax(1).item()
+                                          for oracle in oracles]
             metrics['vae_agnostic_label'].append(vae_agnostic_label)
-            metrics['vae_agnostic_os'].append(int(vae_agnostic_label == oracle_vae_agnostic_label))
-            metrics['vae_agnostic_lvs'].append(js_div(oracle_dist,
-                                                      oracle(vae_agnostic_cf.float().to(device))).cpu().item())
+            for j in range(10):
+                metrics[f'vae_agnostic_os_{j}'].append(int(vae_agnostic_label == oracle_vae_agnostic_labels[j]))
+                metrics[f'vae_agnostic_lvs_{j}'].append(js_div(oracle_dists[j],
+                                                               oracles[j](
+                                                                   vae_agnostic_cf.float().to(device))).cpu().item())
 
     print({k: len(v) for k, v in metrics.items()})
     pd.DataFrame(metrics).to_csv('morphomnist_cf_oracle_metrics.csv')
