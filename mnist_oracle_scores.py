@@ -129,18 +129,18 @@ if __name__ == '__main__':
         'intensity': [],
         'slant': [],
         'target_class': ['cf_label'] * n,
-        'cf_os': [],
-        'pn_os': [],
-        'bigan_os': [],
-        'vae_os': [],
-        'bigan_agnostic_os': [],
-        'vae_agnostic_os': [],
-        'cf_lvs': [],
-        'pn_lvs': [],
-        'bigan_lvs': [],
-        'vae_lvs': [],
-        'bigan_agnostic_lvs': [],
-        'vae_agnostic_lvs': []
+        **{f'cf_os_{j}': [] for j in range(10)},
+        **{f'pn_os_{j}': [] for j in range(10)},
+        **{f'bigan_os_{j}': [] for j in range(10)},
+        **{f'vae_os_{j}': [] for j in range(10)},
+        **{f'bigan_agnostic_os_{j}': [] for j in range(10)},
+        **{f'vae_agnostic_os_{j}': [] for j in range(10)},
+        **{f'cf_lvs_{j}': [] for j in range(10)},
+        **{f'pn_lvs_{j}': [] for j in range(10)},
+        **{f'bigan_lvs_{j}': [] for j in range(10)},
+        **{f'vae_lvs_{j}': [] for j in range(10)},
+        **{f'bigan_agnostic_lvs_{j}': [] for j in range(10)},
+        **{f'vae_agnostic_lvs_{j}': [] for j in range(10)}
     }
     for i in tqdm(range(n), total=n):
         x = x_test[i:i + 1]
