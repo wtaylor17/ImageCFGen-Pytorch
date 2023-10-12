@@ -34,6 +34,13 @@ def train(data_dir: str,
     a_train = torch.from_numpy(np.load(
         os.path.join(data_dir, 'mnist-a-train.npy')
     )).float().to(device)[:, :10]
+    x_test = torch.from_numpy(np.load(
+        os.path.join(data_dir, 'mnist-x-test.npy')
+    )).float().reshape((-1, 1, 28, 28)).to(device) / 255.0
+    a_test = torch.from_numpy(np.load(
+        os.path.join(data_dir, 'mnist-a-test.npy')
+    )).float().to(device)[:, :10]
+
     criterion = nn.CrossEntropyLoss()
 
     model = MNISTClassifier().to(device)
@@ -53,4 +60,9 @@ def train(data_dir: str,
             y = y.argmax(dim=1)
             acc = torch.eq(pred, y).float().mean()
             tq.set_postfix(dict(loss=loss.item(), acc=acc.item()))
+        pred_test = model(2 * x_test - 1).argmax(dim=1)
+        y_test = a_test.argmax(dim=1)
+        val_acc = torch.eq(pred_test, y_test).float().mean()
+        print(val_acc)
+
     return model
